@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TutuType — 手绘路径文本排版工具</title>
+    <meta name="description" content="TutuType：沿手绘路径排布文字的创意排版工具" />
+  </head>
+  <body>
+    <!-- 弥散光背景层 -->
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-purple"></div>
+      <div class="blob blob-blue"></div>
+    </div>
+
+    <div class="app-shell">
+      <aside class="control-panel" aria-label="操作控制台">
+        <!-- 品牌标题 -->
+        <div class="brand-header">
+          <h1 class="panel-title">TutuType</h1>
+          <p class="panel-subtitle">手绘路径文本排版工具</p>
+        </div>
+
+        <input id="image-input" class="visually-hidden" type="file" accept="image/*" />
+        <div id="left-panel-root"></div>
+
+        <!-- 底部署名 -->
+        <footer class="panel-footer">
+          design by：小红书@暴躁兔老师
+        </footer>
+      </aside>
+
+      <main class="canvas-stage" aria-label="核心画布区">
+        <div class="stage-frame">
+          <!-- 右上角：导出 -->
+          <div class="stage-toolbar" aria-label="导出操作">
+            <button class="toolbar-export-button" data-action="export" type="button" title="导出为图片" aria-label="导出为图片">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>导出</span>
+            </button>
+          </div>
+          <img id="stage-image" class="stage-image" alt="上传后的底图" />
+          <svg
+            id="draw-overlay"
+            class="draw-overlay"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-label="手绘轨迹蒙层"
+          ></svg>
+          <div id="stage-placeholder" class="stage-placeholder">
+            请先在左侧上传一张图片
+          </div>
+          <!-- 右下角：撤销/重做 -->
+          <div class="stage-toolbar-bottom" aria-label="历史操作">
+            <button class="toolbar-icon-button" data-action="undo" type="button" title="撤销" aria-label="撤销">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+            </button>
+            <button class="toolbar-icon-button" data-action="redo" type="button" title="重做" aria-label="重做">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path></svg>
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
