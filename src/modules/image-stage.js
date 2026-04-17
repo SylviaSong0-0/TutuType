@@ -338,7 +338,7 @@ export function initImageStage() {
     renderLeftPanel();
   };
 
-  const createLayerRecord = ({ type, text, fontFamily, fontSize, color, letterSpacing, isBold, strokeColor, strokeWidth, hasStroke, isVertical, d, x, y, pathElementId }) => ({
+  const createLayerRecord = ({ type, text, fontFamily, fontSize, color, letterSpacing, isBold, strokeColor, strokeWidth, hasStroke, isVertical, pathMode, scale, rotation, d, x, y, pathElementId }) => ({
     id: createRandomPathId(),
     type,
     text,
@@ -351,7 +351,11 @@ export function initImageStage() {
     strokeWidth: strokeWidth || 0,
     hasStroke: hasStroke ?? false,
     isVertical: isVertical ?? false,
+    pathMode: pathMode || 'freehand',
+    scale: scale ?? 1,
+    rotation: rotation ?? 0,
     d,
+    freehandD: d,
     x,
     y,
     pathElementId,
@@ -419,6 +423,83 @@ export function initImageStage() {
     return { x: p.x - (layer.translateX || 0), y: p.y - (layer.translateY || 0) };
   };
 
+  const generateStaticPath = (mode) => {
+    if (!overlay) return "";
+    const cx = overlay.clientWidth / 2;
+    const cy = overlay.clientHeight / 2;
+    const r = Math.min(cx, cy) * 0.5;
+    let d = "";
+    if (mode === "circle") {
+       d = `M ${cx-r},${cy} A ${r},${r} 0 1,1 ${cx+r},${cy} A ${r},${r} 0 1,1 ${cx-r},${cy}`;
+    } else if (mode === "rectangle") {
+       d = `M ${cx-r},${cy-r} L ${cx+r},${cy-r} L ${cx+r},${cy+r} L ${cx-r},${cy+r} Z`;
+    } else if (mode === "star") {
+       for(let i=0; i<5; i++) {
+         const a1 = -Math.PI/2 + (i*2*Math.PI)/5;
+         const a2 = -Math.PI/2 + ((i+0.5)*2*Math.PI)/5;
+         const p1x = cx + r * Math.cos(a1);
+         const p1y = cy + r * Math.sin(a1);
+         const p2x = cx + r * 0.4 * Math.cos(a2);
+         const p2y = cy + r * 0.4 * Math.sin(a2);
+         if(i===0) d += `M ${p1x},${p1y} `;
+         else d += `L ${p1x},${p1y} `;
+         d += `L ${p2x},${p2y} `;
+       }
+       d += "Z";
+    } else if (mode === "flower") {
+       const N = 5; // Number of petals
+       const R = r * 0.8; // Base radius
+       const A = r * 0.22; // Amplitude for 5 petals
+       const numSamples = 120;
+       
+       const points = [];
+       for (let i = 0; i <= numSamples; i++) {
+         const theta = (i * Math.PI * 2) / numSamples;
+         const currentR = R + A * Math.sin(N * theta);
+         points.push({
+           x: cx + currentR * Math.cos(theta - Math.PI / 2),
+           y: cy + currentR * Math.sin(theta - Math.PI / 2)
+         });
+       }
+
+       // Generate smoothed path using cubic bazier spline logic
+       d = `M ${points[0].x},${points[0].y} `;
+       for (let i = 0; i < numSamples; i++) {
+         const p0 = points[i === 0 ? numSamples - 1 : i - 1];
+         const p1 = points[i];
+         const p2 = points[i + 1];
+         const p3 = points[i + 2 >= numSamples ? i + 2 - numSamples : i + 2];
+         
+         const cp1x = p1.x + (p2.x - p0.x) / 6;
+         const cp1y = p1.y + (p2.y - p0.y) / 6;
+         
+         const cp2x = p2.x - (p3.x - p1.x) / 6;
+         const cp2y = p2.y - (p3.y - p1.y) / 6;
+         
+         d += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y} `;
+       }
+       d += "Z";
+    }
+    return d;
+  };
+
+  let gizmoState = null;
+  const startGizmoAction = (e, action, layer, cx, cy, box) => {
+     gizmoState = {
+        pointerId: e.pointerId,
+        action,
+        layerId: layer.id,
+        cx, cy,
+        boxWidth: box.width,
+        boxHeight: box.height,
+        startScale: layer.scale || 1,
+        startRot: layer.rotation || 0,
+        startX: e.clientX,
+        startY: e.clientY,
+     };
+     overlay.setPointerCapture(e.pointerId);
+  };
+
   const samplePathPoints = (pathEl) => {
     const len = pathEl.getTotalLength();
     const points = [];
@@ -462,6 +543,9 @@ export function initImageStage() {
       });
 
       if (layer.type === "path") {
+        const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.appendChild(innerGroup);
+
         // Hitbox
         const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
         hitbox.dataset.hitbox = "true";
@@ -470,31 +554,130 @@ export function initImageStage() {
         hitbox.setAttribute("stroke", "transparent");
         hitbox.setAttribute("stroke-width", `${HITBOX_STROKE_WIDTH}`);
         hitbox.setAttribute("pointer-events", "stroke");
-        group.appendChild(hitbox);
+        innerGroup.appendChild(hitbox);
         layer.hitboxElement = hitbox;
 
-        // Actual path for textPath reference (not interactive)
+        // Actual path for textPath reference
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.id = layer.pathElementId || createRandomPathId();
         layer.pathElementId = path.id;
         path.dataset.helperPath = "true";
-        path.dataset.helper = "true";
-        path.setAttribute("fill", "none");
+        // Allow selection/dragging by interacting with the fill area
+        path.setAttribute("fill", "transparent");
+        path.setAttribute("pointer-events", "all");
         path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
         path.setAttribute("stroke-width", "2");
         path.setAttribute("stroke-linecap", "round");
         path.setAttribute("stroke-linejoin", "round");
         path.setAttribute("opacity", HELPER_PATH_OPACITY);
         path.setAttribute("d", layer.d);
-        group.appendChild(path);
+        innerGroup.appendChild(path);
         layer.pathElement = path;
 
         // Text (visual, no pointer events)
-        const text = createPathBoundText(group, layer, path);
+        const text = createPathBoundText(innerGroup, layer, path);
         layer.textElement = text;
 
-        // Extend handle follows selected state for completed paths.
-        if (layer.status === "completed") {
+        let cx = 0, cy = 0, scale = layer.scale || 1, rotation = layer.rotation || 0;
+        try {
+          const box = path.getBBox();
+          if (box.width > 0 && box.height > 0) {
+            cx = box.x + box.width / 2;
+            cy = box.y + box.height / 2;
+            innerGroup.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scale}) translate(${-cx}, ${-cy})`);
+
+            if (layer.id === activeLayerId && layer.pathMode && layer.pathMode !== "freehand") {
+              const pad = 10;
+              const scaledWidth = box.width * scale;
+              const scaledHeight = box.height * scale;
+              const sx = cx - scaledWidth / 2 - pad;
+              const sy = cy - scaledHeight / 2 - pad;
+              const sw = scaledWidth + pad * 2;
+              const sh = scaledHeight + pad * 2;
+
+              const gizmo = document.createElementNS("http://www.w3.org/2000/svg", "g");
+              gizmo.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) translate(${-cx}, ${-cy})`);
+
+              const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+              rect.setAttribute("x", sx);
+              rect.setAttribute("y", sy);
+              rect.setAttribute("width", sw);
+              rect.setAttribute("height", sh);
+              rect.setAttribute("fill", "none");
+              rect.setAttribute("stroke", "#555");
+              rect.setAttribute("stroke-width", "1");
+              rect.setAttribute("stroke-dasharray", "4 4");
+              rect.setAttribute("pointer-events", "none");
+              gizmo.appendChild(rect);
+
+              const createHandle = (x, y, cursor, action) => {
+                const h = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                h.setAttribute("x", x - 4);
+                h.setAttribute("y", y - 4);
+                h.setAttribute("width", 8);
+                h.setAttribute("height", 8);
+                h.setAttribute("fill", "#262626");
+                h.setAttribute("cursor", cursor);
+                h.dataset.action = action;
+                h.style.pointerEvents = "all";
+                h.addEventListener("pointerdown", (e) => {
+                  e.stopPropagation();
+                  setActiveLayerOnly(layer.id);
+                  startGizmoAction(e, action, layer, cx, cy, box);
+                });
+                return h;
+              };
+
+              gizmo.appendChild(createHandle(sx, sy, "nwse-resize", "scale-tl"));
+              gizmo.appendChild(createHandle(sx + sw, sy, "nesw-resize", "scale-tr"));
+              gizmo.appendChild(createHandle(sx, sy + sh, "nesw-resize", "scale-bl"));
+              gizmo.appendChild(createHandle(sx + sw, sy + sh, "nwse-resize", "scale-br"));
+
+              const rotLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+              rotLine.setAttribute("x1", sx + sw / 2);
+              rotLine.setAttribute("y1", sy);
+              rotLine.setAttribute("x2", sx + sw / 2);
+              rotLine.setAttribute("y2", sy - 20);
+              rotLine.setAttribute("stroke", "#555");
+              rotLine.setAttribute("stroke-width", "1");
+              gizmo.appendChild(rotLine);
+
+              const rotGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+              rotGroup.style.cursor = "crosshair";
+              rotGroup.style.pointerEvents = "all";
+              rotGroup.addEventListener("pointerdown", (e) => {
+                e.stopPropagation();
+                setActiveLayerOnly(layer.id);
+                startGizmoAction(e, "rotate", layer, cx, cy, box);
+              });
+
+              const rotHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+              rotHandle.setAttribute("cx", sx + sw / 2);
+              rotHandle.setAttribute("cy", sy - 20);
+              rotHandle.setAttribute("r", "8");
+              rotHandle.setAttribute("fill", "#262626");
+              rotGroup.appendChild(rotHandle);
+
+              const rotIcon = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              const rx = sx + sw / 2;
+              const ry = sy - 20;
+              // Simple refresh/rotate icon path
+              rotIcon.setAttribute("d", `M ${rx-3} ${ry-1} A 3.5 3.5 0 1 1 ${rx+3} ${ry+1} M ${rx+1} ${ry-4} L ${rx+4.5} ${ry-1} L ${rx+1} ${ry+1.5}`);
+              rotIcon.setAttribute("stroke", "#ffffff");
+              rotIcon.setAttribute("stroke-width", "1");
+              rotIcon.setAttribute("fill", "none");
+              rotIcon.setAttribute("stroke-linecap", "round");
+              rotGroup.appendChild(rotIcon);
+
+              gizmo.appendChild(rotGroup);
+
+              group.appendChild(gizmo);
+            }
+          }
+        } catch (e) {}
+
+        // Extend handle follows selected state for completed freehand paths.
+        if (layer.status === "completed" && (!layer.pathMode || layer.pathMode === "freehand")) {
           const len = path.getTotalLength();
           const end = path.getPointAtLength(len);
           const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -508,6 +691,7 @@ export function initImageStage() {
           handle.setAttribute("stroke-width", "2");
           handle.setAttribute("display", layer.id === activeLayerId ? "block" : "none");
           handle.setAttribute("pointer-events", "all");
+          handle.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scale}) translate(${-cx}, ${-cy})`);
           group.appendChild(handle);
           layer.handleElement = handle;
 
@@ -557,7 +741,11 @@ export function initImageStage() {
         strokeWidth: layer.strokeWidth,
         hasStroke: layer.hasStroke ?? false,
         isVertical: layer.isVertical ?? false,
+        pathMode: layer.pathMode || 'freehand',
+        scale: layer.scale ?? 1,
+        rotation: layer.rotation ?? 0,
         d: layer.d,
+        freehandD: layer.freehandD,
         type: layer.type,
         x: layer.x,
         y: layer.y,
@@ -659,7 +847,27 @@ export function initImageStage() {
               <div class="layer-props">
                 ${
                   isPending
-                    ? '<p class="pending-hint">请在右侧图片上绘制轨迹...</p>'
+                    ? `
+                      <p class="pending-hint">请在右侧图片上绘制轨迹，或直接选择快捷几何图形：</p>
+                      <div class="quick-shape-matrix">
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="circle" data-layer-id="${layer.id}" title="生成圆形路径">
+                          <span class="shape-icon">⭕️</span>
+                          <span>圆形</span>
+                        </button>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="rectangle" data-layer-id="${layer.id}" title="生成矩形路径">
+                          <span class="shape-icon">🔲</span>
+                          <span>矩形</span>
+                        </button>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="star" data-layer-id="${layer.id}" title="生成五角星路径">
+                          <span class="shape-icon">⭐</span>
+                          <span>五角星</span>
+                        </button>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="flower" data-layer-id="${layer.id}" title="生成花型路径">
+                          <span class="shape-icon">✿</span>
+                          <span>花型</span>
+                        </button>
+                      </div>
+                    `
                     : `
                   <!-- 内容区块 -->
                   <div class="prop-section">
@@ -699,6 +907,16 @@ export function initImageStage() {
                         <option value="'NotoSansJP', sans-serif" ${String(layer.fontFamily).includes('NotoSansJP') ? 'selected' : ''}>Noto Sans JP</option>
                       </optgroup>
                     </select>
+                    <div class="path-mode-card">
+                      <label class="path-mode-label">路径模式 (Path Mode)</label>
+                      <div class="segmented-control">
+                        <button class="segment-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-prop="pathMode" data-val="freehand" data-layer-id="${layer.id}" title="自由手绘">✏️</button>
+                        <button class="segment-btn ${layer.pathMode === 'circle' ? 'active' : ''}" data-prop="pathMode" data-val="circle" data-layer-id="${layer.id}" title="圆形">●</button>
+                        <button class="segment-btn ${layer.pathMode === 'rectangle' ? 'active' : ''}" data-prop="pathMode" data-val="rectangle" data-layer-id="${layer.id}" title="矩形">■</button>
+                        <button class="segment-btn ${layer.pathMode === 'star' ? 'active' : ''}" data-prop="pathMode" data-val="star" data-layer-id="${layer.id}" title="五角星">★</button>
+                        <button class="segment-btn ${layer.pathMode === 'flower' ? 'active' : ''}" data-prop="pathMode" data-val="flower" data-layer-id="${layer.id}" title="花型">✿</button>
+                      </div>
+                    </div>
                     <div class="typo-compact">
                       <div class="typo-row">
                         <label class="typo-label">字号 <output>${layer.fontSize}px</output></label>
@@ -769,6 +987,9 @@ export function initImageStage() {
         isBold: false,
         strokeColor: "#ffffff",
         strokeWidth: 3,
+        pathMode: "freehand",
+        scale: 1,
+        rotation: 0,
         d: "",
         x: null,
         y: null,
@@ -825,7 +1046,38 @@ export function initImageStage() {
       });
     });
 
-    leftPanelRoot.querySelectorAll('[data-prop]').forEach((control) => {
+    leftPanelRoot.querySelectorAll('[data-action="quick-shape"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-layer-id");
+        const shape = btn.getAttribute("data-shape");
+        updateLayerAndRender(id, (layer) => {
+          layer.pathMode = shape;
+          layer.d = generateStaticPath(shape);
+          layer.status = "completed";
+          layer.freehandD = layer.d; // Ensure it can be toggle back
+        }, true);
+        saveState();
+      });
+    });
+
+    leftPanelRoot.querySelectorAll('.segment-btn[data-prop="pathMode"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-layer-id");
+        const val = btn.getAttribute("data-val");
+        updateLayerAndRender(id, (layer) => {
+          layer.pathMode = val;
+          if (val !== "freehand") {
+            layer.d = generateStaticPath(val);
+            layer.status = "completed";
+          } else {
+            layer.d = layer.freehandD || "";
+          }
+        }, true);
+        saveState();
+      });
+    });
+
+    leftPanelRoot.querySelectorAll('input[data-prop], select[data-prop], textarea[data-prop]').forEach((control) => {
       const id = control.getAttribute("data-layer-id");
       const prop = control.getAttribute("data-prop");
       const apply = (rerenderPanel = true) => {
@@ -949,6 +1201,34 @@ export function initImageStage() {
   });
 
   overlay.addEventListener("pointermove", (event) => {
+    if (gizmoState && gizmoState.pointerId === event.pointerId) {
+      const layer = layers.find((l) => l.id === gizmoState.layerId);
+      if (!layer) return;
+      const localP = localPointInLayer(layer, event.clientX, event.clientY);
+      if (!localP) return;
+
+      if (gizmoState.action === "rotate") {
+        const dx = localP.x - gizmoState.cx;
+        const dy = localP.y - gizmoState.cy;
+        let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+        layer.rotation = angle + 90;
+        renderCanvasFromLayers();
+      } else if (gizmoState.action.startsWith("scale")) {
+        const dx = localP.x - gizmoState.cx;
+        const dy = localP.y - gizmoState.cy;
+        const rad = -(gizmoState.startRot) * Math.PI / 180;
+        const urx = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ury = dx * Math.sin(rad) + dy * Math.cos(rad);
+        
+        const ratioX = Math.abs(urx) / (gizmoState.boxWidth / 2);
+        const ratioY = Math.abs(ury) / (gizmoState.boxHeight / 2);
+        const newScale = event.shiftKey ? Math.max(ratioX, ratioY) : Math.max(ratioX, ratioY);
+        layer.scale = Math.max(0.1, newScale);
+        renderCanvasFromLayers();
+      }
+      return;
+    }
+
     if (moveState && moveState.pointerId === event.pointerId) {
       const layer = layers.find((l) => l.id === moveState.layerId);
       const p = localPointInOverlay(event.clientX, event.clientY);
@@ -963,10 +1243,15 @@ export function initImageStage() {
 
     if (extendState && extendState.pointerId === event.pointerId) {
       const layer = layers.find((l) => l.id === extendState.layerId);
-      if (!layer) return;
+      if (!layer || !layer.pathElement) return;
       const p = localPointInLayer(layer, event.clientX, event.clientY);
       if (!p) return;
       extendState.appendedPoints.push(p);
+      
+      const simplified = simplifyPointsRdp(extendState.appendedPoints, RDP_EPSILON);
+      const combined = extendState.basePoints.concat(simplified);
+      const simplifiedAll = simplifyPointsRdp(combined, RDP_EPSILON);
+      layer.pathElement.setAttribute("d", buildSmoothPath(simplifiedAll));
       return;
     }
 
@@ -1119,6 +1404,7 @@ export function initImageStage() {
       record.strokeWidth = strokeWidth;
       record.isVertical = isVertical;
       record.d = d;
+      record.freehandD = d;
       record.x = null;
       record.y = null;
       record.pathElementId = drawingState.activePath.id;
@@ -1146,6 +1432,11 @@ export function initImageStage() {
   overlay.addEventListener("pointercancel", endDrawing);
 
   overlay.addEventListener("pointerup", (event) => {
+    if (gizmoState && gizmoState.pointerId === event.pointerId) {
+      gizmoState = null;
+      saveState();
+      return;
+    }
     if (moveState && moveState.pointerId === event.pointerId) {
       moveState = null;
       saveState();
@@ -1158,6 +1449,7 @@ export function initImageStage() {
         const combined = extendState.basePoints.concat(simplified);
         const simplifiedAll = simplifyPointsRdp(combined, RDP_EPSILON);
         layer.d = buildSmoothPath(simplifiedAll);
+        layer.freehandD = layer.d;
         layer.status = "completed";
         renderCanvasFromLayers();
         renderLeftPanel();

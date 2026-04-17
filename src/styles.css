@@ -96,7 +96,10 @@ body {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-right: 1px solid var(--border);
+  width: 288px;
+  max-width: 288px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -289,6 +292,9 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   padding: 9px 10px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   box-shadow: var(--shadow-glass);
   transition: border-color 0.18s, box-shadow 0.18s;
 }
@@ -312,6 +318,7 @@ body {
   display: flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
 }
 
 .drag-handle {
@@ -765,3 +772,87 @@ input[type="range"]::-moz-range-thumb {
   .control-panel { border-right: 0; border-bottom: 1px solid var(--border); }
   .canvas-stage { padding: 20px; }
 }
+
+/* ─── Segmented Control (Path Mode) ──────────────────── */
+.path-mode-card {
+  margin-top: 13px;
+  background: rgba(255,255,255,0.5);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  padding: 10px 11px;
+  backdrop-filter: blur(8px);
+}
+.path-mode-label {
+  display: block;
+  font-size: 10px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.segmented-control {
+  display: flex;
+  background: rgba(0,0,0,0.06);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+.segment-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.segment-btn:hover {
+  background: rgba(0,0,0,0.04);
+}
+.segment-btn.active {
+  background: #fff;
+  color: #262626;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  font-weight: 600;
+}
+
+/* ─── Quick Shape Matrix (V2.2) ──────────────────────── */
+.quick-shape-matrix {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.quick-shape-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: rgba(0,0,0,0.03);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+.quick-shape-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.quick-shape-btn .shape-icon {
+  font-size: 18px;
+}
+.quick-shape-btn span {
+  font-size: 10px;
+  font-weight: 500;
+}
+
