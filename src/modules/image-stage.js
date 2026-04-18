@@ -10,12 +10,17 @@ const HITBOX_STROKE_WIDTH = 30;
 const SAMPLE_STEP_PX = 4;
 const BASE_CHAR_WIDTH = 16;
 const DIRECT_DRAW_TEXT = "这是一条文字内容";
+const MOBILE_BREAKPOINT_MEDIA = "(max-width: 768px)";
 
 function createRandomPathId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `draw-path-${crypto.randomUUID()}`;
   }
   return `draw-path-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isMobileViewport() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(MOBILE_BREAKPOINT_MEDIA).matches;
 }
 
 function formatMeta(file, image) {
@@ -61,7 +66,7 @@ function syncOverlayToImage(frame, image, overlay) {
 function createStrokePath(overlay) {
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.id = createRandomPathId();
-  path.dataset.helperPath = "true";
+  path.dataset.helper = "true";
   path.setAttribute("fill", "none");
   path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
   path.setAttribute("stroke-width", "2");
@@ -369,15 +374,26 @@ export function initImageStage() {
     groupElement: null,
     hitboxElement: null,
     handleElement: null,
+    gizmoElement: null,
   });
 
   const updateSelectionStyles = () => {
     layers.forEach((layer) => {
-      if (!layer.hitboxElement) return;
       const isActive = layer.id === activeLayerId;
-      layer.hitboxElement.setAttribute("stroke", isActive ? "rgba(38, 38, 38, 0.12)" : "transparent");
+      const isExpanded = layer.id === expandedLayerId;
+      if (layer.pathElement) {
+        layer.pathElement.setAttribute("opacity", isExpanded ? HELPER_PATH_OPACITY : "0");
+      }
+      if (layer.hitboxElement) {
+        layer.hitboxElement.setAttribute("stroke", isActive && isExpanded ? "rgba(38, 38, 38, 0.12)" : "transparent");
+      }
       if (layer.handleElement) {
-        layer.handleElement.setAttribute("display", isActive ? "block" : "none");
+        layer.handleElement.setAttribute("display", isActive && isExpanded ? "block" : "none");
+      }
+      const gizmo = layer.gizmoElement || layer.groupElement?.querySelector?.('[data-role="gizmo"]') || null;
+      if (gizmo) {
+        gizmo.setAttribute("display", isExpanded ? "block" : "none");
+        layer.gizmoElement = gizmo;
       }
     });
   };
@@ -403,6 +419,7 @@ export function initImageStage() {
   const setActiveLayerAndExpand = (id) => {
     activeLayerId = id;
     expandedLayerId = id;
+    renderCanvasFromLayers();
     renderLeftPanel();
     scrollActiveLayerCardIntoView();
     updateSelectionStyles();
@@ -517,6 +534,7 @@ export function initImageStage() {
     layers.forEach((layer) => {
       if (!layer.d && layer.type === "path") return;
       if (layer.type === "stamp" && (layer.x === null || layer.y === null)) return;
+      const showLayerGuides = layer.id === expandedLayerId;
 
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
       group.dataset.layerId = layer.id;
@@ -543,6 +561,7 @@ export function initImageStage() {
       });
 
       if (layer.type === "path") {
+        layer.gizmoElement = null;
         const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         group.appendChild(innerGroup);
 
@@ -561,7 +580,7 @@ export function initImageStage() {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.id = layer.pathElementId || createRandomPathId();
         layer.pathElementId = path.id;
-        path.dataset.helperPath = "true";
+        path.dataset.helper = "true";
         // Allow selection/dragging by interacting with the fill area
         path.setAttribute("fill", "transparent");
         path.setAttribute("pointer-events", "all");
@@ -569,7 +588,7 @@ export function initImageStage() {
         path.setAttribute("stroke-width", "2");
         path.setAttribute("stroke-linecap", "round");
         path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("opacity", HELPER_PATH_OPACITY);
+        path.setAttribute("opacity", showLayerGuides ? HELPER_PATH_OPACITY : "0");
         path.setAttribute("d", layer.d);
         innerGroup.appendChild(path);
         layer.pathElement = path;
@@ -586,7 +605,7 @@ export function initImageStage() {
             cy = box.y + box.height / 2;
             innerGroup.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scale}) translate(${-cx}, ${-cy})`);
 
-            if (layer.id === activeLayerId && layer.pathMode && layer.pathMode !== "freehand") {
+            if (layer.pathMode && layer.pathMode !== "freehand") {
               const pad = 10;
               const scaledWidth = box.width * scale;
               const scaledHeight = box.height * scale;
@@ -596,6 +615,9 @@ export function initImageStage() {
               const sh = scaledHeight + pad * 2;
 
               const gizmo = document.createElementNS("http://www.w3.org/2000/svg", "g");
+              gizmo.dataset.helper = "true";
+              gizmo.dataset.role = "gizmo";
+              gizmo.setAttribute("display", showLayerGuides ? "block" : "none");
               gizmo.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) translate(${-cx}, ${-cy})`);
 
               const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -611,11 +633,13 @@ export function initImageStage() {
               gizmo.appendChild(rect);
 
               const createHandle = (x, y, cursor, action) => {
+                const handleSize = isMobileViewport() ? 24 : 8;
+                const halfHandleSize = handleSize / 2;
                 const h = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                h.setAttribute("x", x - 4);
-                h.setAttribute("y", y - 4);
-                h.setAttribute("width", 8);
-                h.setAttribute("height", 8);
+                h.setAttribute("x", x - halfHandleSize);
+                h.setAttribute("y", y - halfHandleSize);
+                h.setAttribute("width", handleSize);
+                h.setAttribute("height", handleSize);
                 h.setAttribute("fill", "#262626");
                 h.setAttribute("cursor", cursor);
                 h.dataset.action = action;
@@ -652,9 +676,10 @@ export function initImageStage() {
               });
 
               const rotHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+              const rotateHandleRadius = isMobileViewport() ? 12 : 8;
               rotHandle.setAttribute("cx", sx + sw / 2);
               rotHandle.setAttribute("cy", sy - 20);
-              rotHandle.setAttribute("r", "8");
+              rotHandle.setAttribute("r", `${rotateHandleRadius}`);
               rotHandle.setAttribute("fill", "#262626");
               rotGroup.appendChild(rotHandle);
 
@@ -672,6 +697,7 @@ export function initImageStage() {
               gizmo.appendChild(rotGroup);
 
               group.appendChild(gizmo);
+              layer.gizmoElement = gizmo;
             }
           }
         } catch (e) {}
@@ -689,7 +715,7 @@ export function initImageStage() {
           handle.setAttribute("fill", "#262626");
           handle.setAttribute("stroke", "#ffffff");
           handle.setAttribute("stroke-width", "2");
-          handle.setAttribute("display", layer.id === activeLayerId ? "block" : "none");
+          handle.setAttribute("display", layer.id === activeLayerId && showLayerGuides ? "block" : "none");
           handle.setAttribute("pointer-events", "all");
           handle.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scale}) translate(${-cx}, ${-cy})`);
           group.appendChild(handle);
@@ -715,10 +741,18 @@ export function initImageStage() {
       } else {
         layer.pathElement = null;
         layer.hitboxElement = null;
+        layer.gizmoElement = null;
         const text = createStampText(group, layer, () => {});
         layer.textElement = text;
       }
     });
+    if (expandedLayerId) {
+      const expandedLayer = layers.find((layer) => layer.id === expandedLayerId);
+      const expandedGroup = expandedLayer?.groupElement;
+      if (expandedGroup && expandedGroup.parentNode === overlay) {
+        overlay.appendChild(expandedGroup);
+      }
+    }
     updateSelectionStyles();
   };
 
@@ -775,6 +809,7 @@ export function initImageStage() {
       groupElement: null,
       hitboxElement: null,
       handleElement: null,
+      gizmoElement: null,
     }));
     if (!layers.some((layer) => layer.id === activeLayerId)) {
       activeLayerId = layers.length ? layers[layers.length - 1].id : null;
@@ -848,7 +883,7 @@ export function initImageStage() {
                 ${
                   isPending
                     ? `
-                      <p class="pending-hint">请在右侧图片上绘制轨迹，或直接选择快捷几何图形：</p>
+                      <p class="pending-hint">请在图片上绘制轨迹，或直接选择快捷几何图形：</p>
                       <div class="quick-shape-matrix">
                         <button class="quick-shape-btn" data-action="quick-shape" data-shape="circle" data-layer-id="${layer.id}" title="生成圆形路径">
                           <span class="shape-icon">⭕️</span>
@@ -965,12 +1000,14 @@ export function initImageStage() {
       })
       .join("");
 
+    const hasPendingLayer = layers.some((layer) => !layer.isDraft && layer.status === "pending");
+
     leftPanelRoot.innerHTML = `
       ${uploadStateHtml}
       ${image.src ? `
       <section class="panel-section">
         <div class="layer-stack">${layerCardsHtml}</div>
-        <button class="add-layer-button" data-action="add-layer" type="button" style="margin-top: 10px;">添加文字路径</button>
+        ${hasPendingLayer ? "" : `<button class="add-layer-button" data-action="add-layer" type="button" style="margin-top: 10px;">添加新文字路径</button>`}
       </section>
       ` : ''}
     `;
@@ -981,12 +1018,13 @@ export function initImageStage() {
         type: "path",
         text: "",
         fontFamily: "'SourceHanSansHWSC', sans-serif",
-        fontSize: 36,
+        fontSize: 20,
         color: "#000000",
         letterSpacing: 0,
         isBold: false,
         strokeColor: "#ffffff",
-        strokeWidth: 3,
+        strokeWidth: 2,
+        hasStroke: true,
         pathMode: "freehand",
         scale: 1,
         rotation: 0,
@@ -999,6 +1037,7 @@ export function initImageStage() {
       layers.push(layer);
       activeLayerId = layer.id;
       expandedLayerId = null;
+      renderCanvasFromLayers();
       renderLeftPanel();
       const inputNode = leftPanelRoot.querySelector(`[data-role="layer-name-input"][data-layer-id="${layer.id}"]`);
       inputNode?.focus();
@@ -1014,6 +1053,7 @@ export function initImageStage() {
         layer.status = "pending";
         activeLayerId = layer.id;
         expandedLayerId = layer.id;
+        renderCanvasFromLayers();
         renderLeftPanel();
         saveState();
       };
@@ -1028,6 +1068,7 @@ export function initImageStage() {
         const id = button.getAttribute("data-layer-id");
         activeLayerId = id;
         expandedLayerId = expandedLayerId === id ? null : id;
+        renderCanvasFromLayers();
         renderLeftPanel();
         scrollActiveLayerCardIntoView();
         updateSelectionStyles();
@@ -1117,7 +1158,12 @@ export function initImageStage() {
       handle.addEventListener("mousedown", () => {
         card.setAttribute("draggable", "true");
       });
+      handle.addEventListener("touchstart", () => {
+        card.setAttribute("draggable", "true");
+      }, { passive: true });
       handle.addEventListener("mouseup", disableDrag);
+      handle.addEventListener("touchend", disableDrag, { passive: true });
+      handle.addEventListener("touchcancel", disableDrag, { passive: true });
       handle.addEventListener("mouseleave", disableDrag);
       card.addEventListener("dragend", disableDrag);
     });
@@ -1168,6 +1214,7 @@ export function initImageStage() {
     if (activeLayer && !activeLayer.isDraft && activeLayer.status === "completed") {
       activeLayerId = null;
       expandedLayerId = null;
+      renderCanvasFromLayers();
       renderLeftPanel();
       updateSelectionStyles();
       return;
@@ -1192,6 +1239,7 @@ export function initImageStage() {
     if (drawingState.startedWithCompletedSelection) {
       activeLayerId = null;
       expandedLayerId = null;
+      renderCanvasFromLayers();
       renderLeftPanel();
       updateSelectionStyles();
       hideSelectionVisuals();
@@ -1272,6 +1320,7 @@ export function initImageStage() {
       if (movedDistance > CLICK_LENGTH_THRESHOLD) {
         activeLayerId = null;
         expandedLayerId = null;
+        renderCanvasFromLayers();
         renderLeftPanel();
         updateSelectionStyles();
         drawingState.clearedSelectionOnDrag = true;
@@ -1282,6 +1331,12 @@ export function initImageStage() {
     const simplified = simplifyPointsRdp(drawingState.points, RDP_EPSILON);
     drawingState.activePath?.setAttribute("d", buildSmoothPath(simplified));
   });
+
+  overlay.addEventListener("touchmove", (event) => {
+    if (drawingState.isDrawing || moveState || extendState || gizmoState) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 
   const endDrawing = (event) => {
     if (!drawingState.isDrawing || drawingState.pointerId !== event.pointerId) return;
@@ -1307,12 +1362,13 @@ export function initImageStage() {
     const source = getActiveLayer();
     const text = DIRECT_DRAW_TEXT;
     const fontFamily = source?.fontFamily ?? "'SourceHanSansHWSC', sans-serif";
-    const fontSize = source?.fontSize ?? 36;
+    const fontSize = source?.fontSize ?? 20;
     const color = source?.color ?? "#000000";
     const letterSpacing = source?.letterSpacing ?? 0;
     const isBold = source?.isBold ?? false;
+    const hasStroke = source?.hasStroke ?? true;
     const strokeColor = source?.strokeColor ?? "#ffffff";
-    const strokeWidth = source?.strokeWidth ?? 0;
+    const strokeWidth = source?.strokeWidth ?? 2;
     const isVertical = source?.isVertical ?? false;
 
     const shouldReuseActiveLayer = source && (source.isDraft || source.status === "pending");
@@ -1322,6 +1378,7 @@ export function initImageStage() {
       if (startedWithCompletedSelection) {
         activeLayerId = null;
         expandedLayerId = null;
+        renderCanvasFromLayers();
         renderLeftPanel();
         updateSelectionStyles();
         drawingState = {
@@ -1336,45 +1393,7 @@ export function initImageStage() {
         };
         return;
       }
-      const stampPoint = simplified[0] ?? point;
-      if (stampPoint) {
-        const record = shouldReuseActiveLayer
-          ? source
-          : createLayerRecord({
-              type: "stamp",
-              text: text.slice(0, 1),
-              fontFamily,
-              fontSize,
-              color,
-              letterSpacing,
-              isBold,
-              strokeColor,
-              strokeWidth,
-              d: "",
-              x: stampPoint.x,
-              y: stampPoint.y,
-              pathElementId: null,
-            });
-        record.type = "stamp";
-        record.text = (record.text || text).slice(0, 1);
-        record.fontFamily = fontFamily;
-        record.fontSize = fontSize;
-        record.color = color;
-        record.letterSpacing = letterSpacing;
-        record.isBold = isBold;
-        record.strokeColor = strokeColor;
-        record.strokeWidth = strokeWidth;
-        record.x = stampPoint.x;
-        record.y = stampPoint.y;
-        record.d = "";
-        record.pathElementId = null;
-        record.isDraft = false;
-        record.status = "completed";
-        if (!layers.some((layer) => layer.id === record.id)) layers.push(record);
-        renderCanvasFromLayers();
-        setActiveLayerAndExpand(record.id);
-        saveState();
-      }
+      // Disable single-click stamp creation; only freehand path drawing creates text paths.
     } else if (drawingState.activePath) {
       const record = shouldReuseActiveLayer
         ? source
@@ -1386,6 +1405,7 @@ export function initImageStage() {
             color,
             letterSpacing,
             isBold,
+            hasStroke,
             strokeColor,
             strokeWidth,
             d,
@@ -1400,6 +1420,7 @@ export function initImageStage() {
       record.color = color;
       record.letterSpacing = letterSpacing;
       record.isBold = isBold;
+      record.hasStroke = hasStroke;
       record.strokeColor = strokeColor;
       record.strokeWidth = strokeWidth;
       record.isVertical = isVertical;
