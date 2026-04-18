@@ -28,6 +28,46 @@ function formatMeta(file, image) {
   return `${file.name} | ${image.naturalWidth}x${image.naturalHeight} | ${kb} KB`;
 }
 
+/**
+ * Downsamples an image using Canvas to protect mobile memory.
+ * Caps long edge at MAX_SIZE and exports as lightweight JPEG.
+ */
+async function downsampleImage(file, maxSize = 1920) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round(height * (maxSize / width));
+            width = maxSize;
+          } else {
+            width = Math.round(width * (maxSize / height));
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        // Export as JPEG with 0.8 quality for significant memory savings
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function toLocalPoint(svg, clientX, clientY) {
   const svgPoint = svg.createSVGPoint();
   svgPoint.x = clientX;
@@ -223,6 +263,61 @@ function serializeSvgToDataUrl(svgNode) {
   return `data:image/svg+xml;base64,${encoded}`;
 }
 
+function isLikelyMobileDevice() {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  return !!isMobile;
+}
+
+function downloadBlobAsPng(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const downloadLink = document.createElement("a");
+  downloadLink.href = url;
+  downloadLink.download = fileName;
+  downloadLink.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function showLongPressPreviewModal(imageUrl) {
+  const existing = document.querySelector(".preview-modal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "preview-modal";
+
+  const content = document.createElement("div");
+  content.className = "preview-modal-content";
+
+  const hint = document.createElement("p");
+  hint.className = "preview-modal-hint";
+  hint.textContent = "👉 请长按图片保存到系统相册 👈";
+
+  const image = document.createElement("img");
+  image.className = "preview-modal-image";
+  image.src = imageUrl;
+  image.alt = "导出预览";
+
+  const closeButton = document.createElement("button");
+  closeButton.className = "preview-modal-close";
+  closeButton.type = "button";
+  closeButton.textContent = "关闭 / 返回编辑";
+
+  const closeModal = () => {
+    modal.remove();
+    URL.revokeObjectURL(imageUrl);
+  };
+
+  closeButton.addEventListener("click", closeModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+
+  content.appendChild(hint);
+  content.appendChild(image);
+  content.appendChild(closeButton);
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
 async function exportCompositeImage(image, overlay) {
   if (!image.src || !image.naturalWidth || !image.naturalHeight) return;
 
@@ -284,10 +379,40 @@ async function exportCompositeImage(image, overlay) {
 
     ctx.drawImage(svgImage, 0, 0, image.naturalWidth, image.naturalHeight);
 
-    const downloadLink = document.createElement("a");
-    downloadLink.href = canvas.toDataURL("image/png");
-    downloadLink.download = "排版导出.png";
-    downloadLink.click();
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((result) => resolve(result), "image/png");
+    });
+    if (!blob) return;
+
+    const fileName = `TutuType_${Date.now()}.png`;
+    const file = new File([blob], fileName, { type: "image/png" });
+    const isMobile = isLikelyMobileDevice();
+
+    // V4.6 Routing Override: Strictly lock Share API to mobile devices
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "TutuType 导出",
+        });
+        return;
+      } catch (error) {
+        console.error("Share failed:", error);
+        // Fallback for mobile if sharing is interrupted or fails
+        const previewUrl = URL.createObjectURL(blob);
+        showLongPressPreviewModal(previewUrl);
+        return;
+      }
+    }
+
+    // Desktop logic: Direct silent download
+    // Mobile fallback (if share is not supported): Show long-press modal
+    if (isMobile) {
+      const previewUrl = URL.createObjectURL(blob);
+      showLongPressPreviewModal(previewUrl);
+    } else {
+      downloadBlobAsPng(blob, fileName);
+    }
   } finally {
     setHelperPathsVisibility(overlay, true);
   }
@@ -1147,6 +1272,13 @@ export function initImageStage() {
         apply(true);
         saveState();
       });
+      if (control instanceof HTMLInputElement && control.type === "range") {
+        control.addEventListener("touchmove", (event) => {
+          if (!isLikelyMobileDevice()) return;
+          // Stop touchmove from bubbling to browser edge-swipe handlers.
+          event.stopPropagation();
+        }, { passive: true });
+      }
     });
 
     leftPanelRoot.querySelectorAll("[data-role='drag-handle']").forEach((handle) => {
@@ -1248,88 +1380,101 @@ export function initImageStage() {
     drawingState.activePath.setAttribute("d", buildSmoothPath([point]));
   });
 
+  let moveRafPending = false;
+  let latestMoveEvent = null;
+
   overlay.addEventListener("pointermove", (event) => {
-    if (gizmoState && gizmoState.pointerId === event.pointerId) {
-      const layer = layers.find((l) => l.id === gizmoState.layerId);
-      if (!layer) return;
-      const localP = localPointInLayer(layer, event.clientX, event.clientY);
-      if (!localP) return;
+    latestMoveEvent = event;
+    if (moveRafPending) return;
+    moveRafPending = true;
 
-      if (gizmoState.action === "rotate") {
-        const dx = localP.x - gizmoState.cx;
-        const dy = localP.y - gizmoState.cy;
-        let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-        layer.rotation = angle + 90;
-        renderCanvasFromLayers();
-      } else if (gizmoState.action.startsWith("scale")) {
-        const dx = localP.x - gizmoState.cx;
-        const dy = localP.y - gizmoState.cy;
-        const rad = -(gizmoState.startRot) * Math.PI / 180;
-        const urx = dx * Math.cos(rad) - dy * Math.sin(rad);
-        const ury = dx * Math.sin(rad) + dy * Math.cos(rad);
+    requestAnimationFrame(() => {
+      moveRafPending = false;
+      const e = latestMoveEvent;
+      if (!e) return;
+
+      if (gizmoState && gizmoState.pointerId === e.pointerId) {
+        const layer = layers.find((l) => l.id === gizmoState.layerId);
+        if (!layer) return;
+        const localP = localPointInLayer(layer, e.clientX, e.clientY);
+        if (!localP) return;
+
+        if (gizmoState.action === "rotate") {
+          const dx = localP.x - gizmoState.cx;
+          const dy = localP.y - gizmoState.cy;
+          let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+          layer.rotation = angle + 90;
+          renderCanvasFromLayers();
+        } else if (gizmoState.action.startsWith("scale")) {
+          const dx = localP.x - gizmoState.cx;
+          const dy = localP.y - gizmoState.cy;
+          const rad = -(gizmoState.startRot) * Math.PI / 180;
+          const urx = dx * Math.cos(rad) - dy * Math.sin(rad);
+          const ury = dx * Math.sin(rad) + dy * Math.cos(rad);
+          
+          const ratioX = Math.abs(urx) / (gizmoState.boxWidth / 2);
+          const ratioY = Math.abs(ury) / (gizmoState.boxHeight / 2);
+          const newScale = e.shiftKey ? Math.max(ratioX, ratioY) : Math.max(ratioX, ratioY);
+          layer.scale = Math.max(0.1, newScale);
+          renderCanvasFromLayers();
+        }
+        return;
+      }
+
+      if (moveState && moveState.pointerId === e.pointerId) {
+        const layer = layers.find((l) => l.id === moveState.layerId);
+        const p = localPointInOverlay(e.clientX, e.clientY);
+        if (!layer || !p) return;
+        const dx = p.x - moveState.startX;
+        const dy = p.y - moveState.startY;
+        layer.translateX = moveState.baseTranslateX + dx;
+        layer.translateY = moveState.baseTranslateY + dy;
+        layer.groupElement?.setAttribute("transform", `translate(${layer.translateX}, ${layer.translateY})`);
+        return;
+      }
+
+      if (extendState && extendState.pointerId === e.pointerId) {
+        const layer = layers.find((l) => l.id === extendState.layerId);
+        if (!layer || !layer.pathElement) return;
+        const p = localPointInLayer(layer, e.clientX, e.clientY);
+        if (!p) return;
+        extendState.appendedPoints.push(p);
         
-        const ratioX = Math.abs(urx) / (gizmoState.boxWidth / 2);
-        const ratioY = Math.abs(ury) / (gizmoState.boxHeight / 2);
-        const newScale = event.shiftKey ? Math.max(ratioX, ratioY) : Math.max(ratioX, ratioY);
-        layer.scale = Math.max(0.1, newScale);
-        renderCanvasFromLayers();
+        const simplified = simplifyPointsRdp(extendState.appendedPoints, RDP_EPSILON);
+        const combined = extendState.basePoints.concat(simplified);
+        const simplifiedAll = simplifyPointsRdp(combined, RDP_EPSILON);
+        layer.pathElement.setAttribute("d", buildSmoothPath(simplifiedAll));
+        return;
       }
-      return;
-    }
 
-    if (moveState && moveState.pointerId === event.pointerId) {
-      const layer = layers.find((l) => l.id === moveState.layerId);
-      const p = localPointInOverlay(event.clientX, event.clientY);
-      if (!layer || !p) return;
-      const dx = p.x - moveState.startX;
-      const dy = p.y - moveState.startY;
-      layer.translateX = moveState.baseTranslateX + dx;
-      layer.translateY = moveState.baseTranslateY + dy;
-      layer.groupElement?.setAttribute("transform", `translate(${layer.translateX}, ${layer.translateY})`);
-      return;
-    }
+      if (!drawingState.isDrawing || drawingState.pointerId !== e.pointerId) return;
 
-    if (extendState && extendState.pointerId === event.pointerId) {
-      const layer = layers.find((l) => l.id === extendState.layerId);
-      if (!layer || !layer.pathElement) return;
-      const p = localPointInLayer(layer, event.clientX, event.clientY);
-      if (!p) return;
-      extendState.appendedPoints.push(p);
-      
-      const simplified = simplifyPointsRdp(extendState.appendedPoints, RDP_EPSILON);
-      const combined = extendState.basePoints.concat(simplified);
-      const simplifiedAll = simplifyPointsRdp(combined, RDP_EPSILON);
-      layer.pathElement.setAttribute("d", buildSmoothPath(simplifiedAll));
-      return;
-    }
+      const point = toLocalPoint(overlay, e.clientX, e.clientY);
+      if (!point) return;
 
-    if (!drawingState.isDrawing || drawingState.pointerId !== event.pointerId) return;
-
-    const point = toLocalPoint(overlay, event.clientX, event.clientY);
-    if (!point) return;
-
-    if (
-      drawingState.startedWithCompletedSelection &&
-      !drawingState.clearedSelectionOnDrag &&
-      drawingState.startPoint
-    ) {
-      const movedDistance = Math.hypot(
-        point.x - drawingState.startPoint.x,
-        point.y - drawingState.startPoint.y,
-      );
-      if (movedDistance > CLICK_LENGTH_THRESHOLD) {
-        activeLayerId = null;
-        expandedLayerId = null;
-        renderCanvasFromLayers();
-        renderLeftPanel();
-        updateSelectionStyles();
-        drawingState.clearedSelectionOnDrag = true;
+      if (
+        drawingState.startedWithCompletedSelection &&
+        !drawingState.clearedSelectionOnDrag &&
+        drawingState.startPoint
+      ) {
+        const movedDistance = Math.hypot(
+          point.x - drawingState.startPoint.x,
+          point.y - drawingState.startPoint.y,
+        );
+        if (movedDistance > CLICK_LENGTH_THRESHOLD) {
+          activeLayerId = null;
+          expandedLayerId = null;
+          renderCanvasFromLayers();
+          renderLeftPanel();
+          updateSelectionStyles();
+          drawingState.clearedSelectionOnDrag = true;
+        }
       }
-    }
 
-    drawingState.points.push(point);
-    const simplified = simplifyPointsRdp(drawingState.points, RDP_EPSILON);
-    drawingState.activePath?.setAttribute("d", buildSmoothPath(simplified));
+      drawingState.points.push(point);
+      const simplified = simplifyPointsRdp(drawingState.points, RDP_EPSILON);
+      drawingState.activePath?.setAttribute("d", buildSmoothPath(simplified));
+    });
   });
 
   overlay.addEventListener("touchmove", (event) => {
@@ -1358,6 +1503,9 @@ export function initImageStage() {
       elapsed < CLICK_TIME_THRESHOLD &&
       movedDistance <= CLICK_LENGTH_THRESHOLD &&
       (simplified.length <= CLICK_POINT_THRESHOLD || pathLength <= CLICK_LENGTH_THRESHOLD);
+    const isStationaryPress =
+      movedDistance <= CLICK_LENGTH_THRESHOLD &&
+      (simplified.length <= CLICK_POINT_THRESHOLD || pathLength <= CLICK_LENGTH_THRESHOLD);
     const startedWithCompletedSelection = drawingState.startedWithCompletedSelection;
     const source = getActiveLayer();
     const text = DIRECT_DRAW_TEXT;
@@ -1373,7 +1521,7 @@ export function initImageStage() {
 
     const shouldReuseActiveLayer = source && (source.isDraft || source.status === "pending");
 
-    if (isClickMode) {
+    if (isClickMode || isStationaryPress) {
       drawingState.activePath?.remove();
       if (startedWithCompletedSelection) {
         activeLayerId = null;
@@ -1507,33 +1655,43 @@ export function initImageStage() {
     restoreFromHistory(historyIndex + 1);
   });
 
-  input.addEventListener("change", () => {
+  input.addEventListener("change", async () => {
     const [file] = input.files ?? [];
     if (!file) return;
 
     uploadFileName = file.name;
     overlay.replaceChildren();
 
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = URL.createObjectURL(file);
+    try {
+      // Intercept original file and downsample it before set to image.src
+      const compressedUrl = await downsampleImage(file, 1920);
+      
+      if (objectUrl && objectUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      objectUrl = compressedUrl;
 
-    image.onload = () => {
-      placeholder.hidden = true;
-      image.classList.add("is-visible");
-      syncOverlayToImage(frame, image, overlay);
-      renderCanvasFromLayers();
-      renderLeftPanel();
-      updateCanvasUI();
-    };
+      image.onload = () => {
+        placeholder.hidden = true;
+        image.classList.add("is-visible");
+        syncOverlayToImage(frame, image, overlay);
+        renderCanvasFromLayers();
+        renderLeftPanel();
+        updateCanvasUI();
+      };
 
-    image.onerror = () => {
-      placeholder.hidden = false;
-      image.classList.remove("is-visible");
-      overlay.classList.remove("is-visible");
-      updateCanvasUI();
-    };
+      image.onerror = () => {
+        placeholder.hidden = false;
+        image.classList.remove("is-visible");
+        overlay.classList.remove("is-visible");
+        updateCanvasUI();
+      };
 
-    image.src = objectUrl;
+      image.src = objectUrl;
+    } catch (err) {
+      console.error("Image processing failed:", err);
+      alert("图片处理失败，请尝试换一张图片。");
+    }
   });
 
   renderLeftPanel();
