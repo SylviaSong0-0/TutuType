@@ -119,8 +119,13 @@ function createStrokePath(overlay) {
 
 function applyStyleToTextNode(textNode, layer) {
   textNode.setAttribute("fill", layer.color);
-  textNode.setAttribute("font-family", layer.fontFamily || "'SourceHanSansHWSC', sans-serif");
+  
+  // V6.8: Ensure font-family is properly quoted if it contains spaces
+  let ff = layer.fontFamily || "'SourceHanSansHWSC', sans-serif";
+  textNode.setAttribute("font-family", ff);
+  
   textNode.setAttribute("font-size", `${layer.fontSize}`);
+
   textNode.setAttribute("letter-spacing", `${layer.letterSpacing}`);
   textNode.setAttribute("font-weight", layer.isBold ? "bold" : "normal");
   // hasStroke=false 时强制描边宽度为 0，屏蔽描边
@@ -268,13 +273,95 @@ function isLikelyMobileDevice() {
   return !!isMobile;
 }
 
+const fontBase64Cache = new Map();
+
+async function fetchFontAsBase64(url) {
+  const absoluteUrl = new URL(url, window.location.href).href;
+  if (fontBase64Cache.has(absoluteUrl)) return fontBase64Cache.get(absoluteUrl);
+  try {
+    const response = await fetch(absoluteUrl);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result;
+        fontBase64Cache.set(absoluteUrl, base64);
+        resolve(base64);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error("Font fetch failed:", absoluteUrl, e);
+    return null;
+  }
+}
+
+const hitTestCanvas = document.createElement("canvas");
+
+const hitTestCtx = hitTestCanvas.getContext("2d");
+
+function isPointInPencilStroke(x, y, layer) {
+  if (!layer.d || !layer.box) return false;
+  const path = new Path2D(layer.d);
+  hitTestCtx.save();
+  const tx = layer.translateX || 0;
+  const ty = layer.translateY || 0;
+  const cx = layer.cx || 0;
+  const cy = layer.cy || 0;
+  const rot = (layer.rotation || 0) * Math.PI / 180;
+  const scale = layer.scale || 1;
+
+  hitTestCtx.translate(tx + cx, ty + cy);
+  hitTestCtx.rotate(rot);
+  hitTestCtx.scale(scale, scale);
+  hitTestCtx.translate(-cx, -cy);
+
+  hitTestCtx.lineWidth = 40;
+  const hit = hitTestCtx.isPointInStroke(path, x, y);
+  hitTestCtx.restore();
+  return hit;
+}
+
+function isPointInBBox(x, y, layer) {
+  if (!layer.box) return false;
+  const pad = 20;
+  const tx = layer.translateX || 0;
+  const ty = layer.translateY || 0;
+  const cx = tx + layer.cx;
+  const cy = ty + layer.cy;
+  const scale = layer.scale || 1;
+  const w = layer.box.width * scale + pad;
+  const h = layer.box.height * scale + pad;
+  return Math.abs(x - cx) < w / 2 && Math.abs(y - cy) < h / 2;
+}
+
+function debounce(fn, delay) {
+
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+function showToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "tutu-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 1500);
+}
+
 function downloadBlobAsPng(blob, fileName) {
+
   const url = URL.createObjectURL(blob);
   const downloadLink = document.createElement("a");
   downloadLink.href = url;
   downloadLink.download = fileName;
   downloadLink.click();
+  showToast("图片已保存至本地");
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+
 }
 
 function showLongPressPreviewModal(imageUrl) {
@@ -318,7 +405,7 @@ function showLongPressPreviewModal(imageUrl) {
   document.body.appendChild(modal);
 }
 
-async function exportCompositeImage(image, overlay) {
+async function exportCompositeImage(image, overlay, layers) {
   if (!image.src || !image.naturalWidth || !image.naturalHeight) return;
 
   await document.fonts.ready;
@@ -340,6 +427,40 @@ async function exportCompositeImage(image, overlay) {
 
     const scaleX = image.naturalWidth / displayWidth;
     const scaleY = image.naturalHeight / displayHeight;
+  
+    // V6.8: Physical Base64 Font Injection
+    const usedFontFamilies = new Set(layers.map(l => {
+      const ff = l.fontFamily || "'SourceHanSansHWSC', sans-serif";
+      // Extract the first font name (e.g., 'LXGWWenKaiMono' from "'LXGWWenKaiMono', serif")
+      const match = ff.match(/'([^']+)'/);
+      return match ? match[1] : ff.split(',')[0].trim();
+    }));
+
+    const fontFaceRules = [];
+    const styleSheets = Array.from(document.styleSheets);
+    for (const sheet of styleSheets) {
+      try {
+        const rules = Array.from(sheet.cssRules);
+        for (const rule of rules) {
+          if (rule.type === CSSRule.FONT_FACE_RULE) {
+            const family = rule.style.getPropertyValue("font-family").replace(/['"]/g, "").trim();
+            if (usedFontFamilies.has(family)) {
+              const src = rule.style.getPropertyValue("src");
+              const urlMatch = src.match(/url\(["']?([^"']+)["']?\)/);
+              if (urlMatch) {
+                const fontUrl = urlMatch[1];
+                const base64 = await fetchFontAsBase64(fontUrl);
+                if (base64) {
+                  fontFaceRules.push(`@font-face { font-family: '${family}'; src: url("${base64}") format('woff2'); }`);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Skip cross-origin sheets that we can't read
+      }
+    }
 
     const exportSvg = overlay.cloneNode(true);
     exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -348,16 +469,9 @@ async function exportCompositeImage(image, overlay) {
     exportSvg.setAttribute("height", `${image.naturalHeight}`);
     
     const styleNode = document.createElementNS("http://www.w3.org/2000/svg", "style");
-    const fontFaces = Array.from(document.styleSheets)
-      .flatMap((sheet) => {
-        try { return Array.from(sheet.cssRules); } catch (e) { return []; }
-      })
-      .filter((rule) => rule.type === CSSRule.FONT_FACE_RULE || rule.cssText.startsWith("@font-face"))
-      .map((rule) => rule.cssText)
-      .join("\\n");
-      
-    styleNode.textContent = fontFaces;
+    styleNode.textContent = fontFaceRules.join("\n");
     exportSvg.insertBefore(styleNode, exportSvg.firstChild);
+
 
     exportSvg.querySelectorAll('[data-hitbox="true"]').forEach((node) => {
       node.setAttribute("stroke", "transparent");
@@ -395,7 +509,9 @@ async function exportCompositeImage(image, overlay) {
           files: [file],
           title: "TutuType 导出",
         });
+        showToast("图片已保存至本地");
         return;
+
       } catch (error) {
         console.error("Share failed:", error);
         // Fallback for mobile if sharing is interrupted or fails
@@ -429,6 +545,8 @@ export function initImageStage() {
   const redoButton = document.querySelector('[data-action="redo"]');
   const stageToolbar = document.querySelector(".stage-toolbar");
   const stageToolbarBottom = document.querySelector(".stage-toolbar-bottom");
+  const emptyStateTrigger = document.querySelector("#empty-state-trigger");
+
 
   if (!input || !image || !placeholder || !frame || !overlay || !leftPanelRoot || !undoButton || !redoButton) {
     return;
@@ -438,7 +556,13 @@ export function initImageStage() {
     const hasImage = !!image.src;
     if (stageToolbar) stageToolbar.style.display = hasImage ? "flex" : "none";
     if (stageToolbarBottom) stageToolbarBottom.style.display = hasImage ? "flex" : "none";
+    if (placeholder) placeholder.style.display = hasImage ? "none" : "flex";
   };
+
+  if (emptyStateTrigger) {
+    emptyStateTrigger.addEventListener("click", () => input.click());
+  }
+
 
   let layers = [];
   let activeLayerId = null;
@@ -664,71 +788,79 @@ export function initImageStage() {
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
       group.dataset.layerId = layer.id;
       group.setAttribute("transform", `translate(${layer.translateX || 0}, ${layer.translateY || 0})`);
-      overlay.prepend(group);
-      layer.groupElement = group;
+        overlay.appendChild(group);
+        layer.groupElement = group;
+  
+        // V6.6: Listeners removed from group. Centralized in overlay.pointerdown.
+  
+        if (layer.type === "path") {
 
-      // Level B: group move/select
-      group.addEventListener("pointerdown", (event) => {
-        if (event.target && event.target.closest?.('[data-role="extend-handle"]')) return;
-        event.stopPropagation();
-        setActiveLayerAndExpand(layer.id);
-        const p = localPointInOverlay(event.clientX, event.clientY);
-        if (!p) return;
-        moveState = {
-          pointerId: event.pointerId,
-          startX: p.x,
-          startY: p.y,
-          baseTranslateX: layer.translateX || 0,
-          baseTranslateY: layer.translateY || 0,
-          layerId: layer.id,
-        };
-        overlay.setPointerCapture(event.pointerId);
-      });
+          layer.gizmoElement = null;
+          const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          group.appendChild(innerGroup);
+  
+          // Hitbox
+          const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          hitbox.dataset.hitbox = "true";
+          hitbox.setAttribute("d", layer.d);
+          hitbox.setAttribute("fill", "none");
+          hitbox.setAttribute("stroke", "transparent");
+          hitbox.setAttribute("stroke-width", `${HITBOX_STROKE_WIDTH}`);
+          hitbox.setAttribute("pointer-events", "stroke");
+          innerGroup.appendChild(hitbox);
+          layer.hitboxElement = hitbox;
+  
+          // Actual path for textPath reference
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.id = layer.pathElementId || createRandomPathId();
+          layer.pathElementId = path.id;
+          path.dataset.helper = "true";
+          path.setAttribute("fill", "transparent");
+          path.setAttribute("pointer-events", "all");
+          path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
+          path.setAttribute("stroke-width", "2");
+          path.setAttribute("stroke-linecap", "round");
+          path.setAttribute("stroke-linejoin", "round");
+          path.setAttribute("opacity", showLayerGuides ? HELPER_PATH_OPACITY : "0");
+          path.setAttribute("d", layer.d);
+          innerGroup.appendChild(path);
+          layer.pathElement = path;
+  
+          // V6.4 Unified Hitbox: Only for geometric shapes now (V6.5 split)
+          if (showLayerGuides && layer.pathMode && layer.pathMode !== "freehand") {
+            try {
+              const box = path.getBBox();
+              if (box.width > 0 && box.height > 0) {
+                const dragZone = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                dragZone.setAttribute("x", box.x);
+                dragZone.setAttribute("y", box.y);
+                dragZone.setAttribute("width", box.width);
+                dragZone.setAttribute("height", box.height);
+                dragZone.setAttribute("fill", "transparent");
+                dragZone.setAttribute("pointer-events", "all");
+                dragZone.style.cursor = "move";
+                innerGroup.insertBefore(dragZone, hitbox);
+              }
+            } catch (e) {}
+          }
 
-      if (layer.type === "path") {
-        layer.gizmoElement = null;
-        const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.appendChild(innerGroup);
+  
+          // Text (visual, no pointer events)
 
-        // Hitbox
-        const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        hitbox.dataset.hitbox = "true";
-        hitbox.setAttribute("d", layer.d);
-        hitbox.setAttribute("fill", "none");
-        hitbox.setAttribute("stroke", "transparent");
-        hitbox.setAttribute("stroke-width", `${HITBOX_STROKE_WIDTH}`);
-        hitbox.setAttribute("pointer-events", "stroke");
-        innerGroup.appendChild(hitbox);
-        layer.hitboxElement = hitbox;
-
-        // Actual path for textPath reference
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.id = layer.pathElementId || createRandomPathId();
-        layer.pathElementId = path.id;
-        path.dataset.helper = "true";
-        // Allow selection/dragging by interacting with the fill area
-        path.setAttribute("fill", "transparent");
-        path.setAttribute("pointer-events", "all");
-        path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("stroke-linecap", "round");
-        path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("opacity", showLayerGuides ? HELPER_PATH_OPACITY : "0");
-        path.setAttribute("d", layer.d);
-        innerGroup.appendChild(path);
-        layer.pathElement = path;
-
-        // Text (visual, no pointer events)
         const text = createPathBoundText(innerGroup, layer, path);
         layer.textElement = text;
 
         let cx = 0, cy = 0, scale = layer.scale || 1, rotation = layer.rotation || 0;
         try {
           const box = path.getBBox();
+          layer.box = { x: box.x, y: box.y, width: box.width, height: box.height };
           if (box.width > 0 && box.height > 0) {
             cx = box.x + box.width / 2;
             cy = box.y + box.height / 2;
+            layer.cx = cx;
+            layer.cy = cy;
             innerGroup.setAttribute("transform", `translate(${cx}, ${cy}) rotate(${rotation}) scale(${scale}) translate(${-cx}, ${-cy})`);
+
 
             if (layer.pathMode && layer.pathMode !== "freehand") {
               const pad = 10;
@@ -754,8 +886,11 @@ export function initImageStage() {
               rect.setAttribute("stroke", "#555");
               rect.setAttribute("stroke-width", "1");
               rect.setAttribute("stroke-dasharray", "4 4");
-              rect.setAttribute("pointer-events", "none");
+              // V6.5: Pencil gizmos are click-through
+              rect.setAttribute("pointer-events", layer.pathMode === "freehand" ? "none" : "none"); 
+              gizmo.style.pointerEvents = layer.pathMode === "freehand" ? "none" : "all";
               gizmo.appendChild(rect);
+
 
               const createHandle = (x, y, cursor, action) => {
                 const handleSize = isMobileViewport() ? 24 : 8;
@@ -1010,6 +1145,10 @@ export function initImageStage() {
                     ? `
                       <p class="pending-hint">请在图片上绘制轨迹，或直接选择快捷几何图形：</p>
                       <div class="quick-shape-matrix">
+                        <button class="quick-shape-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-action="quick-shape" data-shape="freehand" data-layer-id="${layer.id}" title="自由手绘">
+                          <span class="shape-icon">✏️</span>
+                          <span>手绘</span>
+                        </button>
                         <button class="quick-shape-btn" data-action="quick-shape" data-shape="circle" data-layer-id="${layer.id}" title="生成圆形路径">
                           <span class="shape-icon">⭕️</span>
                           <span>圆形</span>
@@ -1217,31 +1356,50 @@ export function initImageStage() {
         const id = btn.getAttribute("data-layer-id");
         const shape = btn.getAttribute("data-shape");
         updateLayerAndRender(id, (layer) => {
+          const oldMode = layer.pathMode;
+          // Cache current freehand path if switching AWAY from freehand
+          if (oldMode === "freehand" && shape !== "freehand") {
+            layer.freehandD = layer.d;
+          }
           layer.pathMode = shape;
-          layer.d = generateStaticPath(shape);
-          layer.status = "completed";
-          layer.freehandD = layer.d; // Ensure it can be toggle back
+          if (shape === "freehand") {
+            layer.d = layer.freehandD || "";
+            layer.status = layer.d ? "completed" : "pending";
+          } else {
+            layer.d = generateStaticPath(shape);
+            layer.status = "completed";
+          }
         }, true);
         saveState();
       });
     });
+
+
 
     leftPanelRoot.querySelectorAll('.segment-btn[data-prop="pathMode"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-layer-id");
         const val = btn.getAttribute("data-val");
         updateLayerAndRender(id, (layer) => {
+          const oldMode = layer.pathMode;
+          if (oldMode === "freehand" && val !== "freehand") {
+             layer.freehandD = layer.d;
+          }
           layer.pathMode = val;
           if (val !== "freehand") {
             layer.d = generateStaticPath(val);
             layer.status = "completed";
           } else {
+            // Restore from cache instead of instant clear
             layer.d = layer.freehandD || "";
+            layer.status = layer.d ? "completed" : "pending";
           }
         }, true);
         saveState();
       });
     });
+
+
 
     leftPanelRoot.querySelectorAll('input[data-prop], select[data-prop], textarea[data-prop]').forEach((control) => {
       const id = control.getAttribute("data-layer-id");
@@ -1261,13 +1419,20 @@ export function initImageStage() {
           if (prop === "text") layer.text = control.value ?? "";
         }, rerenderPanel);
       };
+      const debouncedApply = debounce(() => apply(false), 200);
+
       control.addEventListener("input", () => {
-        apply(false);
+        if (prop === "color" || prop === "strokeColor") {
+          debouncedApply();
+        } else {
+          apply(false);
+        }
         if (prop === "fontSize" || prop === "letterSpacing" || prop === "strokeWidth") {
           const output = control.previousElementSibling?.querySelector("output");
           if (output) output.textContent = `${control.value}px`;
         }
       });
+
       control.addEventListener("change", () => {
         apply(true);
         saveState();
@@ -1327,8 +1492,9 @@ export function initImageStage() {
 
   // One-time binding for static toolbar buttons
   document.querySelector('[data-action="export"]')?.addEventListener("click", async () => {
-    await exportCompositeImage(image, overlay);
+    await exportCompositeImage(image, overlay, layers);
   });
+
 
   const handleResize = () => syncOverlayToImage(frame, image, overlay);
   const resizeObserver = new ResizeObserver(handleResize);
@@ -1337,37 +1503,79 @@ export function initImageStage() {
   window.addEventListener("resize", handleResize);
 
   overlay.addEventListener("pointerdown", (event) => {
-    // Level C: new path, only from background overlay
-    if (event.target !== overlay) return;
     if (!overlay.classList.contains("is-visible")) return;
+    const p = localPointInOverlay(event.clientX, event.clientY);
+    if (!p) return;
+
+    // V6.6 Global Event Dispatcher: Loop through layers top to bottom
+    const hitTestOrder = [...layers].reverse();
+    let hitLayer = null;
+
+    // We check handles/gizmos first (handled by their own bubbling listeners usually,
+    // but here we ensure they don't trigger layer selection if clicked directly)
+    if (event.target && event.target.closest?.('[data-role="gizmo"]')) return;
+    if (event.target && event.target.closest?.('[data-role="extend-handle"]')) return;
+
+    for (const layer of hitTestOrder) {
+      if (!layer.box) continue;
+      const hit = (layer.pathMode === "freehand") 
+          ? isPointInPencilStroke(p.x, p.y, layer) 
+          : isPointInBBox(p.x, p.y, layer);
+      
+      if (hit) {
+        hitLayer = layer;
+        break;
+      }
+    }
+
+    if (hitLayer) {
+      event.stopPropagation();
+      setActiveLayerAndExpand(hitLayer.id);
+      moveState = {
+        pointerId: event.pointerId,
+        startX: p.x,
+        startY: p.y,
+        baseTranslateX: hitLayer.translateX || 0,
+        baseTranslateY: hitLayer.translateY || 0,
+        layerId: hitLayer.id,
+      };
+      overlay.setPointerCapture(event.pointerId);
+      return;
+    }
+
+    // No hit? Handle deselection and new drawing
     const activeLayer = getActiveLayer();
-    // Clicking blank area should clear selection only for completed layers.
-    // Keep pending/draft drawing interactions unchanged.
     if (activeLayer && !activeLayer.isDraft && activeLayer.status === "completed") {
       activeLayerId = null;
       expandedLayerId = null;
       renderCanvasFromLayers();
       renderLeftPanel();
       updateSelectionStyles();
-      return;
+      // If we were just deselecting, stop here or continue to start new path if in freehand
+      if (event.target !== overlay) return;
     }
 
-    const point = toLocalPoint(overlay, event.clientX, event.clientY);
-    if (!point) return;
+    if (event.target !== overlay) return;
+
+    // V6.0 State Machine Guard: If the current layer is in a geometric mode, block drawing.
+    if (activeLayer && activeLayer.pathMode && activeLayer.pathMode !== "freehand") {
+      return;
+    }
 
     overlay.setPointerCapture(event.pointerId);
     drawingState = {
       isDrawing: true,
-      points: [point],
-      activePath: createStrokePath(overlay),
+      points: [p],
+      activePath: null, // V6.4: Lazy create path to protect cache
       pointerId: event.pointerId,
-      startPoint: point,
+      startPoint: p,
       startedAt: Date.now(),
       startedWithCompletedSelection: Boolean(
         activeLayer && !activeLayer.isDraft && activeLayer.status === "completed",
       ),
       clearedSelectionOnDrag: false,
     };
+
     if (drawingState.startedWithCompletedSelection) {
       activeLayerId = null;
       expandedLayerId = null;
@@ -1377,8 +1585,8 @@ export function initImageStage() {
       hideSelectionVisuals();
       drawingState.clearedSelectionOnDrag = true;
     }
-    drawingState.activePath.setAttribute("d", buildSmoothPath([point]));
   });
+
 
   let moveRafPending = false;
   let latestMoveEvent = null;
@@ -1472,9 +1680,29 @@ export function initImageStage() {
       }
 
       drawingState.points.push(point);
+
+      // V6.4: Only initialize a new path and clear cache if movement exceeds threshold
+      if (!drawingState.activePath) {
+        const movedDistance = Math.hypot(
+          point.x - drawingState.startPoint.x,
+          point.y - drawingState.startPoint.y,
+        );
+        if (movedDistance > CLICK_LENGTH_THRESHOLD) {
+          const layer = getActiveLayer();
+          if (layer && (layer.isDraft || layer.status === "pending" || layer.pathMode === "freehand")) {
+             layer.d = "";
+             layer.freehandD = "";
+          }
+          drawingState.activePath = createStrokePath(overlay);
+        } else {
+          return; // Wait for more movement
+        }
+      }
+
       const simplified = simplifyPointsRdp(drawingState.points, RDP_EPSILON);
       drawingState.activePath?.setAttribute("d", buildSmoothPath(simplified));
     });
+
   });
 
   overlay.addEventListener("touchmove", (event) => {
@@ -1660,7 +1888,15 @@ export function initImageStage() {
     if (!file) return;
 
     uploadFileName = file.name;
+    
+    // Hard Reset Logic
+    layers = [];
+    history = [];
+    historyIndex = -1;
+    activeLayerId = null;
+    expandedLayerId = null;
     overlay.replaceChildren();
+
 
     try {
       // Intercept original file and downsample it before set to image.src
@@ -1672,8 +1908,8 @@ export function initImageStage() {
       objectUrl = compressedUrl;
 
       image.onload = () => {
-        placeholder.hidden = true;
         image.classList.add("is-visible");
+
         syncOverlayToImage(frame, image, overlay);
         renderCanvasFromLayers();
         renderLeftPanel();
@@ -1681,8 +1917,8 @@ export function initImageStage() {
       };
 
       image.onerror = () => {
-        placeholder.hidden = false;
         image.classList.remove("is-visible");
+
         overlay.classList.remove("is-visible");
         updateCanvasUI();
       };

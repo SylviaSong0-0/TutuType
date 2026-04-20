@@ -47,7 +47,12 @@
             aria-label="手绘轨迹蒙层"
           ></svg>
           <div id="stage-placeholder" class="stage-placeholder">
-            请先在左侧上传一张图片
+            <div class="empty-state-container" id="empty-state-trigger">
+              <div class="empty-state-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </div>
+              <p class="empty-state-text">上传图片开始创作</p>
+            </div>
           </div>
           <!-- 右下角：撤销/重做 -->
           <div class="stage-toolbar-bottom" aria-label="历史操作">
