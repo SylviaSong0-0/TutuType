@@ -14,6 +14,7 @@
       s.parentNode.insertBefore(hm, s);
     })();
     </script>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <!-- 弥散光背景层 -->
@@ -21,9 +22,32 @@
       <div class="blob blob-purple"></div>
       <div class="blob blob-blue"></div>
     </div>
+    
+    <script>
+      window.onerror = function (msg, url, lineNo, columnNo, error) {
+        var string = msg.toLowerCase();
+        var substring = "script error";
+        if (string.indexOf(substring) > -1){
+          alert('Script Error: See Browser Console for Detail');
+        } else {
+          var message = [
+            'Message: ' + msg,
+            'URL: ' + url,
+            'Line: ' + lineNo,
+            'Column: ' + columnNo,
+            'Error object: ' + JSON.stringify(error)
+          ].join(' - ');
+          alert(message);
+        }
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        alert("Unhandled Promise Rejection: " + event.reason);
+      });
+    </script>
 
     <div class="app-shell">
-      <aside class="control-panel" aria-label="操作控制台">
+      <aside class="sidebar-container" aria-label="操作控制台">
         <!-- 品牌标题 -->
         <div class="brand-header">
           <h1 class="panel-title">TutuType</h1>
@@ -41,11 +65,10 @@
 
       <main class="canvas-stage" aria-label="核心画布区">
         <div class="stage-frame">
-          <!-- 右上角：导出 -->
-          <div class="stage-toolbar" aria-label="导出操作">
-            <button class="toolbar-export-button" data-action="export" type="button" title="导出为图片" aria-label="导出为图片">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              <span>导出</span>
+          <div class="stage-toolbar" style="display: none;">
+            <button class="toolbar-export-button" data-action="export-right" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              导出图片
             </button>
           </div>
           <img id="stage-image" class="stage-image" alt="上传后的底图" />
@@ -76,6 +99,6 @@
       </main>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.js?v=3"></script>
   </body>
 </html>

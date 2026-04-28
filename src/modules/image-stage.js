@@ -12,6 +12,20 @@ const BASE_CHAR_WIDTH = 16;
 const DIRECT_DRAW_TEXT = "这是一条文字内容";
 const MOBILE_BREAKPOINT_MEDIA = "(max-width: 768px)";
 
+const ICONS = {
+  PENCIL: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+  DOT: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/></svg>`,
+  SQUARE: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`,
+  STAR: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
+  FLOWER: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M12 7c0-2.5 2-4.5 4.5-4.5S21 4.5 21 7s-2 4.5-4.5 4.5"/><path d="M12 7c0-2.5-2-4.5-4.5-4.5S3 4.5 3 7s2 4.5 4.5 4.5"/><path d="M12 17c0 2.5 2 4.5 4.5 4.5s4.5-2 4.5-4.5-2-4.5-4.5-4.5"/><path d="M12 17c0 2.5-2 4.5-4.5 4.5S3 19.5 3 17s2-4.5 4.5-4.5"/></svg>`,
+  SPARKLE: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l1.91 5.82L21 12l-7.09 3.18L12 21l-1.91-5.82L3 12l7.09-3.18L12 3z"/></svg>`,
+  RAINDROP: `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c-5 7-7 11-7 14.5 0 3.86 3.14 7 7 7s7-3.14 7-7c0-3.5-2-7.5-7-14.5z"/></svg>`,
+  CHEVRON: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
+  COPY: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`,
+  EDIT: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  TRASH: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+};
+
 function createRandomPathId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `draw-path-${crypto.randomUUID()}`;
@@ -119,11 +133,11 @@ function createStrokePath(overlay) {
 
 function applyStyleToTextNode(textNode, layer) {
   textNode.setAttribute("fill", layer.color);
-  
+
   // V6.8: Ensure font-family is properly quoted if it contains spaces
-  let ff = layer.fontFamily || "'SourceHanSansHWSC', sans-serif";
+  let ff = layer.fontFamily || "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
   textNode.setAttribute("font-family", ff);
-  
+
   textNode.setAttribute("font-size", `${layer.fontSize}`);
 
   textNode.setAttribute("letter-spacing", `${layer.letterSpacing}`);
@@ -139,17 +153,32 @@ function applyStyleToTextNode(textNode, layer) {
   textNode.style.textCombineUpright = "";
 }
 
+function estimateTextWidth(text, layer) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const ff = layer.fontFamily || "sans-serif";
+  ctx.font = `${layer.isBold ? 'bold ' : ''}${layer.fontSize}px ${ff}`;
+  const metrics = ctx.measureText(text);
+  // Total width approx = measured width + (charCount * letterSpacing)
+  return metrics.width + ([...text].length * (Number(layer.letterSpacing) || 0));
+}
+
 function computeRenderedTextForPath(layer, pathEl) {
   const raw = layer.text ?? "";
-  if (!layer.loop || !raw || !pathEl) return raw;
+  if (!raw || !pathEl) return raw;
 
   const len = pathEl.getTotalLength?.() ?? 0;
+  if (len <= 0) return raw;
+
+  // Original V1.0 Loop Mode
+  if (!layer.loop) return raw;
+
   // 采用 0.2 倍字号作为最窄字符的保守宽度估计（如英文字母 'i', 'l'），防止短估长文字。
   const minCharWidth = Math.max(1, (Number(layer.fontSize) || BASE_CHAR_WIDTH) * 0.2);
   const safeMaxChars = Math.ceil(len / minCharWidth);
-  
+
   const targetChars = Math.max(safeMaxChars, raw.length);
-  
+
   let output = raw;
   while (output.length < targetChars) {
     output += raw;
@@ -187,6 +216,13 @@ function createVerticalPathText(overlay, layer, pathEl) {
   let offset = 0;
   let charIndex = 0;
 
+  if (layer.showTextJitter) {
+    if (!layer.textRandomCache || layer.textRandomCache.length < chars.length || layer.needsTextJitterUpdate) {
+      updateTextJitterCache(layer);
+      layer.needsTextJitterUpdate = false;
+    }
+  }
+
   while (offset <= totalLen) {
     const ch = chars[charIndex % chars.length];
     if (!ch) break;
@@ -194,10 +230,35 @@ function createVerticalPathText(overlay, layer, pathEl) {
     const pt = pathEl.getPointAtLength(offset);
     const charEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
     applyStyleToTextNode(charEl, layer);
-    charEl.setAttribute("x", pt.x);
-    charEl.setAttribute("y", pt.y);
+
+    let x = pt.x;
+    let y = pt.y;
+    let charFontSize = fontSize;
+    let transformRotation = 0;
+
+    if (layer.showTextJitter && layer.textDNA) {
+      const dna = layer.textDNA[charIndex % layer.textDNA.length];
+      const sizeMultiplier = (layer.jitterSize ?? 50) / 125;
+      const frequencyMultiplier = (layer.jitterFrequency ?? 50) / 50;
+      const scatterMultiplier = (layer.jitterScatter ?? 25) / 50;
+
+      const scale = 1.0 + dna.scaleNoise * sizeMultiplier;
+      charFontSize *= scale;
+      charEl.setAttribute("font-size", `${charFontSize}px`);
+
+      x += dna.xNoise * (fontSize * 0.5) * frequencyMultiplier;
+      y += dna.yNoise * (fontSize * 0.5) * frequencyMultiplier;
+
+      transformRotation = dna.xNoise * 30 * scatterMultiplier;
+    }
+
+    charEl.setAttribute("x", x);
+    charEl.setAttribute("y", y);
     charEl.setAttribute("text-anchor", "middle");
     charEl.setAttribute("dominant-baseline", "central");
+    if (transformRotation !== 0) {
+      charEl.setAttribute("transform", `rotate(${transformRotation}, ${x}, ${y})`);
+    }
     charEl.textContent = ch;
     group.appendChild(charEl);
 
@@ -214,7 +275,206 @@ function createVerticalPathText(overlay, layer, pathEl) {
   return group;
 }
 
+/**
+ * V2.0 Horizontal Stamp Mode: place the entire string unit at intervals
+ * without any rotation, creating a stacked "stamp" effect.
+ */
+function createStampFillText(overlay, layer, pathEl) {
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  group.setAttribute("pointer-events", "none");
+
+  const totalLen = pathEl.getTotalLength();
+  const textContent = layer.text || "";
+  if (!textContent || totalLen <= 0) { overlay.appendChild(group); return group; }
+
+  // 1. Extreme Brush Algorithm (文字笔刷模式)
+  // Measure full sentence width as visual reference
+  const unitWidth = estimateTextWidth(textContent, { ...layer, letterSpacing: 0 });
+
+  // 2. High-Density Step Calculation
+  // We decouple Step from "readability". 
+  // Default step (S=0) is only 5% of the width, creating a 95% overlap.
+  const sliderS = Number(layer.letterSpacing) || 0;
+  const rawStep = (unitWidth * 0.05) + (sliderS * 0.8);
+
+  // 3. Performance Safety Barrier
+  // Force a minimum of 5px to prevent browser hang while maintaining "ink" density
+  const Step = Math.max(5, rawStep);
+
+  // 4. Center Anchoring Stamp Loop
+  let stepIndex = 0;
+  for (let d = 0; d < totalLen; d += Step) {
+    const pt = pathEl.getPointAtLength(d);
+    const unitEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+    // Internal char spacing is locked to 0 for sentence integrity
+    applyStyleToTextNode(unitEl, { ...layer, letterSpacing: 0 });
+
+    let finalX = pt.x;
+    let finalY = pt.y;
+    let finalRotation = 0;
+    let baseFontSize = layer.fontSize || 20;
+    let finalFontSize = baseFontSize;
+
+    // Apply Jitter if enabled
+    if (layer.showTextJitter && layer.textDNA) {
+      const dna = layer.textDNA[stepIndex % layer.textDNA.length];
+      const sizeMultiplier = (layer.jitterSize ?? 50) / 125;
+      const frequencyMultiplier = (layer.jitterFrequency ?? 50) / 50;
+      const scatterMultiplier = (layer.jitterScatter ?? 25) / 50;
+
+      const scale = 1.0 + dna.scaleNoise * sizeMultiplier;
+      finalFontSize = baseFontSize * scale;
+
+      const offset = dna.yNoise * (baseFontSize * 0.5) * frequencyMultiplier;
+      finalY += offset;
+
+      finalRotation = dna.xNoise * 30 * scatterMultiplier;
+      stepIndex++;
+    }
+
+    unitEl.setAttribute("x", finalX);
+    unitEl.setAttribute("y", finalY);
+    unitEl.setAttribute("font-size", `${finalFontSize}px`);
+    if (finalRotation !== 0) {
+      unitEl.setAttribute("transform", `rotate(${finalRotation}, ${finalX}, ${finalY})`);
+    }
+    unitEl.setAttribute("text-anchor", "middle");
+    unitEl.setAttribute("dominant-baseline", "central");
+    unitEl.textContent = textContent;
+    group.appendChild(unitEl);
+  }
+
+  overlay.appendChild(group);
+  return group;
+}
+
+function createShapeElement(shape, x, y, r, color) {
+  let el;
+  if (shape === "circle") {
+    el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    el.setAttribute("cx", x);
+    el.setAttribute("cy", y);
+    el.setAttribute("r", r);
+  } else if (shape === "square") {
+    el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    el.setAttribute("x", x - r);
+    el.setAttribute("y", y - r);
+    el.setAttribute("width", r * 2);
+    el.setAttribute("height", r * 2);
+  } else if (shape === "star") {
+    el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const points = [];
+    const numPoints = 5;
+    for (let i = 0; i < numPoints * 2; i++) {
+      const angle = (i * Math.PI) / numPoints - Math.PI / 2;
+      const radius = i % 2 === 0 ? r : r * 0.4;
+      points.push(`${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`);
+    }
+    el.setAttribute("d", `M ${points.join(" L ")} Z`);
+  } else if (shape === "raindrop") {
+    el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const d = `M ${x},${y - r * 1.5} C ${x + r},${y} ${x + r},${y + r} ${x},${y + r} S ${x - r},${y} ${x},${y - r * 1.5} Z`;
+    el.setAttribute("d", d);
+  }
+  el.setAttribute("fill", color);
+  return el;
+}
+
+function createStarPath(cx, cy, r1, r2, points) {
+  let d = "";
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (i * Math.PI) / points - Math.PI / 2;
+    const r = i % 2 === 0 ? r1 : r2;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    d += (i === 0 ? "M" : "L") + `${x} ${y}`;
+  }
+  d += "Z";
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  el.setAttribute("d", d);
+  return el;
+}
+
+
+function generateLayerDNA(layer, pathEl) {
+  const text = layer.text || "";
+  const textDNA = [];
+  for (let i = 0; i < 500; i++) { // Generate more than enough
+    textDNA.push({
+      scaleNoise: (Math.random() - 0.5) * 2,
+      xNoise: (Math.random() - 0.5) * 2,
+      yNoise: (Math.random() - 0.5) * 2,
+      triggerRatio: Math.random() * 100
+    });
+  }
+  layer.textDNA = textDNA;
+
+  const decorDNA = [];
+  for (let i = 0; i < 300; i++) {
+    decorDNA.push({
+      t: Math.random(), // Random position along path
+      xNoise: (Math.random() - 0.5) * 2,
+      yNoise: (Math.random() - 0.5) * 2,
+      triggerRatio: Math.random() * 100
+    });
+  }
+  // Sort decorDNA by t for consistency if needed, but random is fine
+  layer.decorDNA = decorDNA;
+}
+
+function createDecorationGroup(overlay, layer, pathEl) {
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  if (!layer.showDecorations || !layer.decorDNA) {
+    overlay.appendChild(group);
+    return group;
+  }
+
+  const totalLen = pathEl.getTotalLength();
+  const density = layer.decorationDensity ?? 20;
+  const scatter = layer.decorationScatter ?? 10;
+  const baseRadius = layer.decorationRadius ?? 8;
+
+  layer.decorDNA.forEach(dna => {
+    if (dna.triggerRatio > density) return;
+
+    const pos = pathEl.getPointAtLength(dna.t * totalLen);
+    const x = pos.x + dna.xNoise * scatter;
+    const y = pos.y + dna.yNoise * scatter;
+
+    let shape;
+    if (layer.decorationShape === 'star') {
+      shape = createStarPath(x, y, baseRadius, baseRadius / 2, 5);
+    } else if (layer.decorationShape === 'square') {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      shape.setAttribute("x", x - baseRadius);
+      shape.setAttribute("y", y - baseRadius);
+      shape.setAttribute("width", baseRadius * 2);
+      shape.setAttribute("height", baseRadius * 2);
+    } else if (layer.decorationShape === 'raindrop') {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      shape.setAttribute("d", `M${x} ${y - baseRadius * 1.2} C${x - baseRadius} ${y} ${x - baseRadius} ${y + baseRadius} ${x} ${y + baseRadius} C${x + baseRadius} ${y + baseRadius} ${x + baseRadius} ${y} ${x} ${y - baseRadius * 1.2} Z`);
+    } else {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      shape.setAttribute("cx", x);
+      shape.setAttribute("cy", y);
+      shape.setAttribute("r", baseRadius);
+    }
+
+    shape.setAttribute("fill", layer.decorationColor || "#F472B6");
+    group.appendChild(shape);
+  });
+
+  overlay.appendChild(group);
+  return group;
+}
+
 function createPathBoundText(overlay, layer, pathEl) {
+  // V2.0 "Horizontal Stamp Mode" (fillPath)
+  if (layer.fillPath) {
+    return createStampFillText(overlay, layer, pathEl);
+  }
+
   // Vertical mode: use per-character positioning to keep glyphs upright
   if (layer.isVertical) {
     return createVerticalPathText(overlay, layer, pathEl);
@@ -226,7 +486,41 @@ function createPathBoundText(overlay, layer, pathEl) {
 
   const textPath = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
   textPath.setAttribute("href", `#${layer.pathElementId}`);
-  textPath.textContent = computeRenderedTextForPath(layer, pathEl);
+
+  const rawText = computeRenderedTextForPath(layer, pathEl);
+  const baseFontSize = layer.fontSize || 20;
+
+  if (layer.showTextJitter && layer.textDNA) {
+    const sizeMultiplier = (layer.jitterSize ?? 50) / 125;
+    const frequencyMultiplier = (layer.jitterFrequency ?? 50) / 50;
+    const scatterMultiplier = (layer.jitterScatter ?? 25) / 50;
+
+    for (let i = 0; i < rawText.length; i++) {
+      const char = rawText[i];
+      const dna = layer.textDNA[i % layer.textDNA.length];
+      const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+      tspan.textContent = char;
+
+      const scale = 1.0 + dna.scaleNoise * sizeMultiplier;
+      tspan.setAttribute("font-size", `${baseFontSize * scale}px`);
+
+      const baselineOffset = dna.yNoise * (baseFontSize * 0.5) * frequencyMultiplier;
+      if (baselineOffset !== 0) {
+        tspan.setAttribute("baseline-shift", `${baselineOffset}px`);
+      }
+
+      const rotation = dna.xNoise * 30 * scatterMultiplier;
+      if (rotation !== 0) {
+        tspan.setAttribute("rotate", `${rotation}`);
+      }
+
+      textPath.appendChild(tspan);
+    }
+  } else {
+    const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+    tspan.textContent = rawText;
+    textPath.appendChild(tspan);
+  }
 
   text.appendChild(textPath);
   overlay.appendChild(text);
@@ -338,10 +632,19 @@ function isPointInBBox(x, y, layer) {
 function debounce(fn, delay) {
 
   let timer = null;
-  return function(...args) {
+  return function (...args) {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => fn.apply(this, args), delay);
   };
+}
+
+/** Keeps the thick slider's active-fill gradient in sync with its value. */
+function updateSliderFill(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 100;
+  const val = Number(input.value) || 0;
+  const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+  input.style.setProperty('--fill-pct', `${pct}%`);
 }
 
 function showToast(message) {
@@ -405,7 +708,7 @@ function showLongPressPreviewModal(imageUrl) {
   document.body.appendChild(modal);
 }
 
-async function exportCompositeImage(image, overlay, layers) {
+async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) {
   if (!image.src || !image.naturalWidth || !image.naturalHeight) return;
 
   await document.fonts.ready;
@@ -416,6 +719,9 @@ async function exportCompositeImage(image, overlay, layers) {
 
   setHelperPathsVisibility(overlay, false);
 
+  // Actually, we skip base image rendering if toggle is off
+
+
   try {
     const canvas = document.createElement("canvas");
     canvas.width = image.naturalWidth;
@@ -423,15 +729,19 @@ async function exportCompositeImage(image, overlay, layers) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight);
+    if (isBaseImageVisible) {
+      ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
     const scaleX = image.naturalWidth / displayWidth;
     const scaleY = image.naturalHeight / displayHeight;
-  
+
     // V6.8: Physical Base64 Font Injection
     const usedFontFamilies = new Set(layers.map(l => {
-      const ff = l.fontFamily || "'SourceHanSansHWSC', sans-serif";
-      // Extract the first font name (e.g., 'LXGWWenKaiMono' from "'LXGWWenKaiMono', serif")
+      const ff = l.fontFamily || "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+      // Extract the first font name (e.g., 'LXGWWenKaiMono' from "'LXGWWenKaiMono', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif")
       const match = ff.match(/'([^']+)'/);
       return match ? match[1] : ff.split(',')[0].trim();
     }));
@@ -467,7 +777,7 @@ async function exportCompositeImage(image, overlay, layers) {
     exportSvg.setAttribute("viewBox", `0 0 ${image.naturalWidth} ${image.naturalHeight}`);
     exportSvg.setAttribute("width", `${image.naturalWidth}`);
     exportSvg.setAttribute("height", `${image.naturalHeight}`);
-    
+
     const styleNode = document.createElementNS("http://www.w3.org/2000/svg", "style");
     styleNode.textContent = fontFaceRules.join("\n");
     exportSvg.insertBefore(styleNode, exportSvg.firstChild);
@@ -557,6 +867,13 @@ export function initImageStage() {
     if (stageToolbar) stageToolbar.style.display = hasImage ? "flex" : "none";
     if (stageToolbarBottom) stageToolbarBottom.style.display = hasImage ? "flex" : "none";
     if (placeholder) placeholder.style.display = hasImage ? "none" : "flex";
+    if (hasImage && !isBaseImageVisible) {
+      image.style.opacity = '0';
+      frame.classList.add('stage-checkerboard');
+    } else {
+      image.style.opacity = '1';
+      frame.classList.remove('stage-checkerboard');
+    }
   };
 
   if (emptyStateTrigger) {
@@ -565,8 +882,8 @@ export function initImageStage() {
 
 
   let layers = [];
+  let isBaseImageVisible = true;
   let activeLayerId = null;
-  let expandedLayerId = null;
   let history = [];
   let historyIndex = -1;
   let uploadFileName = "";
@@ -592,44 +909,55 @@ export function initImageStage() {
     renderLeftPanel();
   };
 
-  const createLayerRecord = ({ type, text, fontFamily, fontSize, color, letterSpacing, isBold, strokeColor, strokeWidth, hasStroke, isVertical, pathMode, scale, rotation, d, x, y, pathElementId }) => ({
+  const createLayerRecord = (props) => ({
     id: createRandomPathId(),
-    type,
-    text,
-    fontFamily: fontFamily || "'SourceHanSansHWSC', sans-serif",
-    fontSize,
-    color,
-    letterSpacing,
-    isBold: isBold ?? false,
-    strokeColor: strokeColor || "#ffffff",
-    strokeWidth: strokeWidth || 0,
-    hasStroke: hasStroke ?? false,
-    isVertical: isVertical ?? false,
-    pathMode: pathMode || 'freehand',
-    scale: scale ?? 1,
-    rotation: rotation ?? 0,
-    d,
-    freehandD: d,
-    x,
-    y,
-    pathElementId,
+    type: props.type || 'path',
+    text: props.text ?? "",
+    fontFamily: props.fontFamily || "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+    fontSize: props.fontSize || 20,
+    color: props.color || "#000000",
+    letterSpacing: props.letterSpacing ?? 0,
+    isBold: props.isBold ?? false,
+    strokeColor: props.strokeColor || "#ffffff",
+    strokeWidth: props.strokeWidth || 0,
+    hasStroke: props.hasStroke ?? false,
+    isVertical: props.isVertical ?? false,
+    fillPath: props.fillPath ?? false,
+    pathMode: props.pathMode || 'freehand',
+    showDecorations: props.showDecorations ?? false,
+    decorationShape: props.decorationShape || 'circle',
+    decorationColor: props.decorationColor || '#F472B6',
+    decorationRadius: props.decorationRadius ?? 8,
+    decorationDensity: props.decorationDensity ?? 20,
+    decorationScatter: props.decorationScatter ?? 10,
+    decorationLayering: props.decorationLayering || 'below',
+    showTextJitter: props.showTextJitter ?? false,
+    jitterSize: props.jitterSize ?? 50,
+    jitterFrequency: props.jitterFrequency ?? 50,
+    jitterScatter: props.jitterScatter ?? 25,
+    textDNA: null,
+    decorDNA: null,
+    isDecorExpanded: props.isDecorExpanded ?? false,
+    scale: props.scale ?? 1,
+    rotation: props.rotation ?? 0,
+    d: props.d || "",
+    freehandD: props.d || "",
+    x: props.x ?? null,
+    y: props.y ?? null,
+    pathElementId: props.pathElementId || createRandomPathId(),
     textElement: null,
     pathElement: null,
+    status: "completed",
     loop: true,
-    isDraft: false,
-    status: "pending",
-    translateX: 0,
-    translateY: 0,
-    groupElement: null,
-    hitboxElement: null,
-    handleElement: null,
-    gizmoElement: null,
+    isHidden: false,
+    isDraft: false
   });
+
 
   const updateSelectionStyles = () => {
     layers.forEach((layer) => {
       const isActive = layer.id === activeLayerId;
-      const isExpanded = layer.id === expandedLayerId;
+      const isExpanded = layer.id === activeLayerId;
       if (layer.pathElement) {
         layer.pathElement.setAttribute("opacity", isExpanded ? HELPER_PATH_OPACITY : "0");
       }
@@ -667,7 +995,6 @@ export function initImageStage() {
   // 左侧“编辑态”：显式展开并 focus
   const setActiveLayerAndExpand = (id) => {
     activeLayerId = id;
-    expandedLayerId = id;
     renderCanvasFromLayers();
     renderLeftPanel();
     scrollActiveLayerCardIntoView();
@@ -696,74 +1023,74 @@ export function initImageStage() {
     const r = Math.min(cx, cy) * 0.5;
     let d = "";
     if (mode === "circle") {
-       d = `M ${cx-r},${cy} A ${r},${r} 0 1,1 ${cx+r},${cy} A ${r},${r} 0 1,1 ${cx-r},${cy}`;
+      d = `M ${cx - r},${cy} A ${r},${r} 0 1,1 ${cx + r},${cy} A ${r},${r} 0 1,1 ${cx - r},${cy}`;
     } else if (mode === "rectangle") {
-       d = `M ${cx-r},${cy-r} L ${cx+r},${cy-r} L ${cx+r},${cy+r} L ${cx-r},${cy+r} Z`;
+      d = `M ${cx - r},${cy - r} L ${cx + r},${cy - r} L ${cx + r},${cy + r} L ${cx - r},${cy + r} Z`;
     } else if (mode === "star") {
-       for(let i=0; i<5; i++) {
-         const a1 = -Math.PI/2 + (i*2*Math.PI)/5;
-         const a2 = -Math.PI/2 + ((i+0.5)*2*Math.PI)/5;
-         const p1x = cx + r * Math.cos(a1);
-         const p1y = cy + r * Math.sin(a1);
-         const p2x = cx + r * 0.4 * Math.cos(a2);
-         const p2y = cy + r * 0.4 * Math.sin(a2);
-         if(i===0) d += `M ${p1x},${p1y} `;
-         else d += `L ${p1x},${p1y} `;
-         d += `L ${p2x},${p2y} `;
-       }
-       d += "Z";
+      for (let i = 0; i < 5; i++) {
+        const a1 = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+        const a2 = -Math.PI / 2 + ((i + 0.5) * 2 * Math.PI) / 5;
+        const p1x = cx + r * Math.cos(a1);
+        const p1y = cy + r * Math.sin(a1);
+        const p2x = cx + r * 0.4 * Math.cos(a2);
+        const p2y = cy + r * 0.4 * Math.sin(a2);
+        if (i === 0) d += `M ${p1x},${p1y} `;
+        else d += `L ${p1x},${p1y} `;
+        d += `L ${p2x},${p2y} `;
+      }
+      d += "Z";
     } else if (mode === "flower") {
-       const N = 5; // Number of petals
-       const R = r * 0.8; // Base radius
-       const A = r * 0.22; // Amplitude for 5 petals
-       const numSamples = 120;
-       
-       const points = [];
-       for (let i = 0; i <= numSamples; i++) {
-         const theta = (i * Math.PI * 2) / numSamples;
-         const currentR = R + A * Math.sin(N * theta);
-         points.push({
-           x: cx + currentR * Math.cos(theta - Math.PI / 2),
-           y: cy + currentR * Math.sin(theta - Math.PI / 2)
-         });
-       }
+      const N = 5; // Number of petals
+      const R = r * 0.8; // Base radius
+      const A = r * 0.22; // Amplitude for 5 petals
+      const numSamples = 120;
 
-       // Generate smoothed path using cubic bazier spline logic
-       d = `M ${points[0].x},${points[0].y} `;
-       for (let i = 0; i < numSamples; i++) {
-         const p0 = points[i === 0 ? numSamples - 1 : i - 1];
-         const p1 = points[i];
-         const p2 = points[i + 1];
-         const p3 = points[i + 2 >= numSamples ? i + 2 - numSamples : i + 2];
-         
-         const cp1x = p1.x + (p2.x - p0.x) / 6;
-         const cp1y = p1.y + (p2.y - p0.y) / 6;
-         
-         const cp2x = p2.x - (p3.x - p1.x) / 6;
-         const cp2y = p2.y - (p3.y - p1.y) / 6;
-         
-         d += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y} `;
-       }
-       d += "Z";
+      const points = [];
+      for (let i = 0; i <= numSamples; i++) {
+        const theta = (i * Math.PI * 2) / numSamples;
+        const currentR = R + A * Math.sin(N * theta);
+        points.push({
+          x: cx + currentR * Math.cos(theta - Math.PI / 2),
+          y: cy + currentR * Math.sin(theta - Math.PI / 2)
+        });
+      }
+
+      // Generate smoothed path using cubic bazier spline logic
+      d = `M ${points[0].x},${points[0].y} `;
+      for (let i = 0; i < numSamples; i++) {
+        const p0 = points[i === 0 ? numSamples - 1 : i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2 >= numSamples ? i + 2 - numSamples : i + 2];
+
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        d += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y} `;
+      }
+      d += "Z";
     }
     return d;
   };
 
   let gizmoState = null;
   const startGizmoAction = (e, action, layer, cx, cy, box) => {
-     gizmoState = {
-        pointerId: e.pointerId,
-        action,
-        layerId: layer.id,
-        cx, cy,
-        boxWidth: box.width,
-        boxHeight: box.height,
-        startScale: layer.scale || 1,
-        startRot: layer.rotation || 0,
-        startX: e.clientX,
-        startY: e.clientY,
-     };
-     overlay.setPointerCapture(e.pointerId);
+    gizmoState = {
+      pointerId: e.pointerId,
+      action,
+      layerId: layer.id,
+      cx, cy,
+      boxWidth: box.width,
+      boxHeight: box.height,
+      startScale: layer.scale || 1,
+      startRot: layer.rotation || 0,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    overlay.setPointerCapture(e.pointerId);
   };
 
   const samplePathPoints = (pathEl) => {
@@ -783,72 +1110,86 @@ export function initImageStage() {
     layers.forEach((layer) => {
       if (!layer.d && layer.type === "path") return;
       if (layer.type === "stamp" && (layer.x === null || layer.y === null)) return;
-      const showLayerGuides = layer.id === expandedLayerId;
+      if (layer.isHidden) return;
+      const showLayerGuides = layer.id === activeLayerId;
 
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
       group.dataset.layerId = layer.id;
       group.setAttribute("transform", `translate(${layer.translateX || 0}, ${layer.translateY || 0})`);
-        overlay.appendChild(group);
-        layer.groupElement = group;
-  
-        // V6.6: Listeners removed from group. Centralized in overlay.pointerdown.
-  
-        if (layer.type === "path") {
+      overlay.appendChild(group);
+      layer.groupElement = group;
 
-          layer.gizmoElement = null;
-          const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-          group.appendChild(innerGroup);
-  
-          // Hitbox
-          const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          hitbox.dataset.hitbox = "true";
-          hitbox.setAttribute("d", layer.d);
-          hitbox.setAttribute("fill", "none");
-          hitbox.setAttribute("stroke", "transparent");
-          hitbox.setAttribute("stroke-width", `${HITBOX_STROKE_WIDTH}`);
-          hitbox.setAttribute("pointer-events", "stroke");
-          innerGroup.appendChild(hitbox);
-          layer.hitboxElement = hitbox;
-  
-          // Actual path for textPath reference
-          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          path.id = layer.pathElementId || createRandomPathId();
-          layer.pathElementId = path.id;
-          path.dataset.helper = "true";
-          path.setAttribute("fill", "transparent");
-          path.setAttribute("pointer-events", "all");
-          path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
-          path.setAttribute("stroke-width", "2");
-          path.setAttribute("stroke-linecap", "round");
-          path.setAttribute("stroke-linejoin", "round");
-          path.setAttribute("opacity", showLayerGuides ? HELPER_PATH_OPACITY : "0");
-          path.setAttribute("d", layer.d);
-          innerGroup.appendChild(path);
-          layer.pathElement = path;
-  
-          // V6.4 Unified Hitbox: Only for geometric shapes now (V6.5 split)
-          if (showLayerGuides && layer.pathMode && layer.pathMode !== "freehand") {
-            try {
-              const box = path.getBBox();
-              if (box.width > 0 && box.height > 0) {
-                const dragZone = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                dragZone.setAttribute("x", box.x);
-                dragZone.setAttribute("y", box.y);
-                dragZone.setAttribute("width", box.width);
-                dragZone.setAttribute("height", box.height);
-                dragZone.setAttribute("fill", "transparent");
-                dragZone.setAttribute("pointer-events", "all");
-                dragZone.style.cursor = "move";
-                innerGroup.insertBefore(dragZone, hitbox);
-              }
-            } catch (e) {}
-          }
+      // V6.6: Listeners removed from group. Centralized in overlay.pointerdown.
 
-  
-          // Text (visual, no pointer events)
+      if (layer.type === "path") {
+
+        layer.gizmoElement = null;
+        const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.appendChild(innerGroup);
+
+        // Hitbox
+        const hitbox = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hitbox.dataset.hitbox = "true";
+        hitbox.setAttribute("d", layer.d);
+        hitbox.setAttribute("fill", "none");
+        hitbox.setAttribute("stroke", "transparent");
+        hitbox.setAttribute("stroke-width", `${HITBOX_STROKE_WIDTH}`);
+        hitbox.setAttribute("pointer-events", "stroke");
+        innerGroup.appendChild(hitbox);
+        layer.hitboxElement = hitbox;
+
+        // Actual path for textPath reference
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.id = layer.pathElementId || createRandomPathId();
+        layer.pathElementId = path.id;
+        path.dataset.helper = "true";
+        path.setAttribute("fill", "transparent");
+        path.setAttribute("pointer-events", "all");
+        path.setAttribute("stroke", "rgba(75, 85, 99, 1)");
+        path.setAttribute("stroke-width", "2");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("stroke-linejoin", "round");
+        path.setAttribute("opacity", showLayerGuides ? HELPER_PATH_OPACITY : "0");
+        path.setAttribute("d", layer.d);
+        innerGroup.appendChild(path);
+        layer.pathElement = path;
+
+        // V6.4 Unified Hitbox: Only for geometric shapes now (V6.5 split)
+        if (showLayerGuides && layer.pathMode && layer.pathMode !== "freehand") {
+          try {
+            const box = path.getBBox();
+            if (box.width > 0 && box.height > 0) {
+              const dragZone = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+              dragZone.setAttribute("x", box.x);
+              dragZone.setAttribute("y", box.y);
+              dragZone.setAttribute("width", box.width);
+              dragZone.setAttribute("height", box.height);
+              dragZone.setAttribute("fill", "transparent");
+              dragZone.setAttribute("pointer-events", "all");
+              dragZone.style.cursor = "move";
+              innerGroup.insertBefore(dragZone, hitbox);
+            }
+          } catch (e) { }
+        }
+
+
+        // Text (visual, no pointer events)
+
+        // V3.2: DNA Lifecycle Management
+        if (!layer.textDNA || !layer.decorDNA) {
+          generateLayerDNA(layer, path);
+        }
+
+        if (layer.showDecorations && layer.decorationLayering === "below") {
+          createDecorationGroup(innerGroup, layer, path);
+        }
 
         const text = createPathBoundText(innerGroup, layer, path);
         layer.textElement = text;
+
+        if (layer.showDecorations && layer.decorationLayering === "above") {
+          createDecorationGroup(innerGroup, layer, path);
+        }
 
         let cx = 0, cy = 0, scale = layer.scale || 1, rotation = layer.rotation || 0;
         try {
@@ -887,7 +1228,7 @@ export function initImageStage() {
               rect.setAttribute("stroke-width", "1");
               rect.setAttribute("stroke-dasharray", "4 4");
               // V6.5: Pencil gizmos are click-through
-              rect.setAttribute("pointer-events", layer.pathMode === "freehand" ? "none" : "none"); 
+              rect.setAttribute("pointer-events", layer.pathMode === "freehand" ? "none" : "none");
               gizmo.style.pointerEvents = layer.pathMode === "freehand" ? "none" : "all";
               gizmo.appendChild(rect);
 
@@ -947,7 +1288,7 @@ export function initImageStage() {
               const rx = sx + sw / 2;
               const ry = sy - 20;
               // Simple refresh/rotate icon path
-              rotIcon.setAttribute("d", `M ${rx-3} ${ry-1} A 3.5 3.5 0 1 1 ${rx+3} ${ry+1} M ${rx+1} ${ry-4} L ${rx+4.5} ${ry-1} L ${rx+1} ${ry+1.5}`);
+              rotIcon.setAttribute("d", `M ${rx - 3} ${ry - 1} A 3.5 3.5 0 1 1 ${rx + 3} ${ry + 1} M ${rx + 1} ${ry - 4} L ${rx + 4.5} ${ry - 1} L ${rx + 1} ${ry + 1.5}`);
               rotIcon.setAttribute("stroke", "#ffffff");
               rotIcon.setAttribute("stroke-width", "1");
               rotIcon.setAttribute("fill", "none");
@@ -960,7 +1301,7 @@ export function initImageStage() {
               layer.gizmoElement = gizmo;
             }
           }
-        } catch (e) {}
+        } catch (e) { }
 
         // Extend handle follows selected state for completed freehand paths.
         if (layer.status === "completed" && (!layer.pathMode || layer.pathMode === "freehand")) {
@@ -1002,12 +1343,12 @@ export function initImageStage() {
         layer.pathElement = null;
         layer.hitboxElement = null;
         layer.gizmoElement = null;
-        const text = createStampText(group, layer, () => {});
+        const text = createStampText(group, layer, () => { });
         layer.textElement = text;
       }
     });
-    if (expandedLayerId) {
-      const expandedLayer = layers.find((layer) => layer.id === expandedLayerId);
+    if (activeLayerId) {
+      const expandedLayer = layers.find((layer) => layer.id === activeLayerId);
       const expandedGroup = expandedLayer?.groupElement;
       if (expandedGroup && expandedGroup.parentNode === overlay) {
         overlay.appendChild(expandedGroup);
@@ -1024,31 +1365,13 @@ export function initImageStage() {
   const saveState = () => {
     const snapshot = cloneLayers(
       layers.map((layer) => ({
-        id: layer.id,
-        text: layer.text,
-        fontFamily: layer.fontFamily,
-        fontSize: layer.fontSize,
-        color: layer.color,
-        letterSpacing: layer.letterSpacing,
-        isBold: layer.isBold,
-        strokeColor: layer.strokeColor,
-        strokeWidth: layer.strokeWidth,
-        hasStroke: layer.hasStroke ?? false,
-        isVertical: layer.isVertical ?? false,
-        pathMode: layer.pathMode || 'freehand',
-        scale: layer.scale ?? 1,
-        rotation: layer.rotation ?? 0,
-        d: layer.d,
-        freehandD: layer.freehandD,
-        type: layer.type,
-        x: layer.x,
-        y: layer.y,
-        pathElementId: layer.pathElementId,
-        loop: layer.loop,
-        status: layer.status,
-        isDraft: layer.isDraft,
-        translateX: layer.translateX || 0,
-        translateY: layer.translateY || 0,
+        ...layer,
+        textElement: undefined,
+        pathElement: undefined,
+        groupElement: undefined,
+        hitboxElement: undefined,
+        handleElement: undefined,
+        gizmoElement: undefined,
       })),
     );
     if (historyIndex < history.length - 1) {
@@ -1074,8 +1397,7 @@ export function initImageStage() {
     if (!layers.some((layer) => layer.id === activeLayerId)) {
       activeLayerId = layers.length ? layers[layers.length - 1].id : null;
     }
-    if (!layers.some((layer) => layer.id === expandedLayerId)) {
-      expandedLayerId = activeLayerId;
+    if (!layers.some((layer) => layer.id === activeLayerId)) {
     }
     renderCanvasFromLayers();
     renderLeftPanel();
@@ -1099,7 +1421,12 @@ export function initImageStage() {
             <div class="upload-filled">
               <img class="upload-thumb" src="${image.src}" alt="缩略图" />
               <div class="upload-name" title="${uploadFileName}">${uploadFileName || "已上传图片"}</div>
-              <button class="minor-button" data-action="pick-image" type="button">重新上传</button>
+              <button class="icon-button" data-action="toggle-base-image" title="${isBaseImageVisible ? '隐藏底图' : '显示底图'}" style="flex-shrink: 0;">
+                ${isBaseImageVisible
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'}
+              </button>
+              <button class="minor-button" data-action="pick-image" type="button" style="flex-shrink: 0;">重新上传</button>
             </div>
           </div>
         </section>
@@ -1119,169 +1446,286 @@ export function initImageStage() {
         if (layer.isDraft) {
           return `
             <article class="layer-card" data-layer-id="${layer.id}">
-              <input class="layer-input" data-role="layer-name-input" data-layer-id="${layer.id}" placeholder="输入图层文本后回车" value="${layer.text}" />
+              <div class="card-inner">
+                <input class="layer-input" data-role="layer-name-input" data-layer-id="${layer.id}" placeholder="输入图层文本后回车" value="${layer.text}" />
+              </div>
             </article>
           `;
         }
-        const expanded = expandedLayerId === layer.id;
+        const expanded = activeLayerId === layer.id;
         const isPending = layer.status === "pending";
+
         return `
-          <article class="layer-card${isPending ? " is-pending" : ""}" data-layer-id="${layer.id}" draggable="false">
-            <div class="layer-head">
-              <span class="drag-handle" data-role="drag-handle">::</span>
-              <div class="layer-title" title="${layer.text || "未命名图层"}">${layer.text || "未命名图层"}</div>
-              <button class="icon-button" data-action="edit-layer" data-layer-id="${layer.id}" type="button" style="display: flex; align-items: center; gap: 2px;">
-                编辑
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chevron-icon ${expanded ? 'is-expanded' : ''}"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </button>
-              <button class="icon-button" data-action="delete-layer" data-layer-id="${layer.id}" type="button">删除</button>
-            </div>
-            ${
-              expanded
-                ? `
-              <div class="layer-props">
-                ${
-                  isPending
-                    ? `
-                      <p class="pending-hint">请在图片上绘制轨迹，或直接选择快捷几何图形：</p>
+          <article class="layer-card${isPending ? " is-pending" : ""}${activeLayerId === layer.id ? " active" : ""}" data-layer-id="${layer.id}" draggable="false">
+              <div class="layer-head" data-action="expand-layer" data-layer-id="${layer.id}">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                  <span class="drag-handle" data-role="drag-handle">::</span>
+                  <div class="layer-title" title="${layer.text || "未命名图层"}">${layer.text || "未命名"}</div>
+                </div>
+                
+                <div style="display: flex; gap: 8px; align-items: center;" onclick="event.stopPropagation()">
+                  <button class="icon-button" data-action="copy-layer" data-layer-id="${layer.id}" title="复制图层">${ICONS.COPY}</button>
+                  <button class="icon-button" data-action="delete-layer" data-layer-id="${layer.id}" title="删除">${ICONS.TRASH}</button>
+                  <button class="icon-button chevron-icon ${expanded ? 'is-expanded' : ''}" data-action="expand-layer" data-layer-id="${layer.id}">${ICONS.CHEVRON}</button>
+                </div>
+              </div>
+            ${expanded
+            ? `
+              <div class="layer-props" onclick="event.stopPropagation()">
+                ${isPending
+              ? `
+                    <div class="ui-card" style="margin-bottom: 0; border: none; padding: 0;">
+                      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">请绘制轨迹或选择几何图形：</p>
                       <div class="quick-shape-matrix">
-                        <button class="quick-shape-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-action="quick-shape" data-shape="freehand" data-layer-id="${layer.id}" title="自由手绘">
-                          <span class="shape-icon">✏️</span>
+                        <button class="quick-shape-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-action="quick-shape" data-shape="freehand" data-layer-id="${layer.id}">
+                          <span class="shape-icon">${ICONS.PENCIL}</span>
                           <span>手绘</span>
                         </button>
-                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="circle" data-layer-id="${layer.id}" title="生成圆形路径">
-                          <span class="shape-icon">⭕️</span>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="circle" data-layer-id="${layer.id}">
+                          <span class="shape-icon">${ICONS.DOT}</span>
                           <span>圆形</span>
                         </button>
-                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="rectangle" data-layer-id="${layer.id}" title="生成矩形路径">
-                          <span class="shape-icon">🔲</span>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="rectangle" data-layer-id="${layer.id}">
+                          <span class="shape-icon">${ICONS.SQUARE}</span>
                           <span>矩形</span>
                         </button>
-                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="star" data-layer-id="${layer.id}" title="生成五角星路径">
-                          <span class="shape-icon">⭐</span>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="star" data-layer-id="${layer.id}">
+                          <span class="shape-icon">${ICONS.STAR}</span>
                           <span>五角星</span>
                         </button>
-                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="flower" data-layer-id="${layer.id}" title="生成花型路径">
-                          <span class="shape-icon">✿</span>
+                        <button class="quick-shape-btn" data-action="quick-shape" data-shape="flower" data-layer-id="${layer.id}">
+                          <span class="shape-icon">${ICONS.FLOWER}</span>
                           <span>花型</span>
                         </button>
                       </div>
+                    </div>
                     `
-                    : `
-                  <!-- 内容区块 -->
-                  <div class="prop-section">
-                    <textarea data-prop="text" data-layer-id="${layer.id}" class="layer-text-edit">${layer.text}</textarea>
-                    <div class="checkbox-inline-row">
-                      <label class="checkbox-row">
-                        <input data-prop="loop" data-layer-id="${layer.id}" type="checkbox" ${layer.loop ? 'checked' : ''} />
-                        <span>循环</span>
-                      </label>
-                      <label class="checkbox-row">
-                        <input data-prop="isVertical" data-layer-id="${layer.id}" type="checkbox" ${layer.isVertical ? 'checked' : ''} />
-                        <span>竖排</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <!-- 排版区块 -->
-                  <div class="prop-section">
-                    <select data-prop="fontFamily" data-layer-id="${layer.id}" class="layer-input">
-                      <optgroup label="中文">
-                        <option value="'SourceHanSansHWSC', sans-serif" ${String(layer.fontFamily).includes('SourceHanSansHWSC') ? 'selected' : ''}>思源黑体</option>
-                        <option value="'SourceHanSerifSC', serif" ${String(layer.fontFamily).includes('SourceHanSerifSC') ? 'selected' : ''}>思源宋体 SC</option>
-                        <option value="'SmileySans', sans-serif" ${String(layer.fontFamily).includes('SmileySans') ? 'selected' : ''}>得意黑</option>
-                        <option value="'LXGWWenKaiMono', serif" ${String(layer.fontFamily).includes('LXGWWenKaiMono') ? 'selected' : ''}>霞鹜文楷</option>
-                      </optgroup>
-                      <optgroup label="英文">
-                        <option value="'Inter', sans-serif" ${String(layer.fontFamily).includes('Inter') ? 'selected' : ''}>Inter</option>
-                        <option value="'PlayfairDisplay', serif" ${String(layer.fontFamily).includes('PlayfairDisplay') ? 'selected' : ''}>Playfair Display</option>
-                        <option value="'Caveat', cursive" ${String(layer.fontFamily).includes('Caveat') ? 'selected' : ''}>Caveat</option>
-                      </optgroup>
-                      <optgroup label="韩语">
-                        <option value="'SourceHanSerifK', serif" ${String(layer.fontFamily).includes('SourceHanSerifK') ? 'selected' : ''}>思源韩文宋体</option>
-                        <option value="'NanumPenScript', cursive" ${String(layer.fontFamily).includes('NanumPenScript') ? 'selected' : ''}>Nanum Pen Script</option>
-                      </optgroup>
-                      <optgroup label="日语">
-                        <option value="'SourceHanSerif', serif" ${String(layer.fontFamily) === "'SourceHanSerif', serif" ? 'selected' : ''}>思源宋体</option>
-                        <option value="'NotoSansJP', sans-serif" ${String(layer.fontFamily).includes('NotoSansJP') ? 'selected' : ''}>Noto Sans JP</option>
-                      </optgroup>
-                    </select>
-                    <div class="path-mode-card">
-                      <label class="path-mode-label">路径模式 (Path Mode)</label>
-                      <div class="segmented-control">
-                        <button class="segment-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-prop="pathMode" data-val="freehand" data-layer-id="${layer.id}" title="自由手绘">✏️</button>
-                        <button class="segment-btn ${layer.pathMode === 'circle' ? 'active' : ''}" data-prop="pathMode" data-val="circle" data-layer-id="${layer.id}" title="圆形">●</button>
-                        <button class="segment-btn ${layer.pathMode === 'rectangle' ? 'active' : ''}" data-prop="pathMode" data-val="rectangle" data-layer-id="${layer.id}" title="矩形">■</button>
-                        <button class="segment-btn ${layer.pathMode === 'star' ? 'active' : ''}" data-prop="pathMode" data-val="star" data-layer-id="${layer.id}" title="五角星">★</button>
-                        <button class="segment-btn ${layer.pathMode === 'flower' ? 'active' : ''}" data-prop="pathMode" data-val="flower" data-layer-id="${layer.id}" title="花型">✿</button>
+              : `
+                  <!-- Card 1: Basic Typography -->
+                  <div class="ui-card">
+                    <div class="control-row">
+                      <div class="control-label">路径类型</div>
+                      <div class="control-content" style="gap:16px;">
+                        <button class="segment-btn ${!layer.pathMode || layer.pathMode === 'freehand' ? 'active' : ''}" data-prop="pathMode" data-val="freehand" data-layer-id="${layer.id}" style="background:transparent;border:none;cursor:pointer;color:var(--p2-dark);opacity:${!layer.pathMode || layer.pathMode === 'freehand' ? '1' : '0.3'};padding:2px;display:flex;">${ICONS.PENCIL}</button>
+                        <button class="segment-btn ${layer.pathMode === 'rectangle' ? 'active' : ''}" data-prop="pathMode" data-val="rectangle" data-layer-id="${layer.id}" style="background:transparent;border:none;cursor:pointer;color:var(--p2-dark);opacity:${layer.pathMode === 'rectangle' ? '1' : '0.3'};padding:2px;display:flex;">${ICONS.SQUARE}</button>
+                        <button class="segment-btn ${layer.pathMode === 'circle' ? 'active' : ''}" data-prop="pathMode" data-val="circle" data-layer-id="${layer.id}" style="background:transparent;border:none;cursor:pointer;color:var(--p2-dark);opacity:${layer.pathMode === 'circle' ? '1' : '0.3'};padding:2px;display:flex;">${ICONS.DOT}</button>
+                        <button class="segment-btn ${layer.pathMode === 'star' ? 'active' : ''}" data-prop="pathMode" data-val="star" data-layer-id="${layer.id}" style="background:transparent;border:none;cursor:pointer;color:var(--p2-dark);opacity:${layer.pathMode === 'star' ? '1' : '0.3'};padding:2px;display:flex;">${ICONS.STAR}</button>
+                        <button class="segment-btn ${layer.pathMode === 'flower' ? 'active' : ''}" data-prop="pathMode" data-val="flower" data-layer-id="${layer.id}" style="background:transparent;border:none;cursor:pointer;color:var(--p2-dark);opacity:${layer.pathMode === 'flower' ? '1' : '0.3'};padding:2px;display:flex;">${ICONS.FLOWER}</button>
                       </div>
                     </div>
-                    <div class="typo-compact">
-                      <div class="typo-row">
-                        <label class="typo-label">字号 <output>${layer.fontSize}px</output></label>
+                    <div class="control-row" style="align-items:flex-start;padding-top:4px;min-height:unset;">
+                      <div class="control-label" style="padding-top:12px;">文字内容</div>
+                      <div class="control-content">
+                        <div class="muted-textarea-wrapper">
+                          <textarea data-prop="text" data-layer-id="${layer.id}" class="muted-textarea" rows="2">${layer.text}</textarea>
+                          <div class="textarea-icon">${ICONS.EDIT}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="control-row">
+                      <div class="control-label">排版属性</div>
+                      <div class="control-content" style="gap:14px;">
+                        <label class="check-label"><input data-prop="loop" data-layer-id="${layer.id}" type="checkbox" ${layer.loop ? 'checked' : ''} ${layer.fillPath ? 'disabled' : ''} />循环</label>
+                        <label class="check-label"><input data-prop="isVertical" data-layer-id="${layer.id}" type="checkbox" ${layer.isVertical ? 'checked' : ''} ${layer.fillPath ? 'disabled' : ''} />竖排</label>
+                        <label class="check-label"><input data-prop="fillPath" data-layer-id="${layer.id}" type="checkbox" ${layer.fillPath ? 'checked' : ''} />平铺</label>
+                      </div>
+                    </div>
+                    <div class="control-row">
+                      <div class="control-label">字体</div>
+                      <div class="control-content">
+                        <div class="muted-wrapper">
+                          <select data-prop="fontFamily" data-layer-id="${layer.id}">
+                            <optgroup label="中文">
+                              <option value="'SourceHanSansHWSC', sans-serif" ${String(layer.fontFamily).includes('SourceHanSansHWSC') ? 'selected' : ''}>思源黑体</option>
+                              <option value="'SourceHanSerifSC', serif" ${String(layer.fontFamily).includes('SourceHanSerifSC') ? 'selected' : ''}>思源宋体</option>
+                              <option value="'SmileySans', sans-serif" ${String(layer.fontFamily).includes('SmileySans') ? 'selected' : ''}>得意黑</option>
+                              <option value="'LXGWWenKaiMono', serif" ${String(layer.fontFamily).includes('LXGWWenKaiMono') ? 'selected' : ''}>霞鹜文楷</option>
+                              <option value="'Yozai', sans-serif" ${String(layer.fontFamily).includes('Yozai') ? 'selected' : ''}>悠哉字体</option>
+                            </optgroup>
+                            <optgroup label="英文">
+                              <option value="'Inter', sans-serif" ${String(layer.fontFamily).includes('Inter') ? 'selected' : ''}>Inter</option>
+                              <option value="'PlayfairDisplay', serif" ${String(layer.fontFamily).includes('PlayfairDisplay') ? 'selected' : ''}>Playfair</option>
+                              <option value="'Caveat', cursive" ${String(layer.fontFamily).includes('Caveat') ? 'selected' : ''}>Caveat</option>
+                              <option value="'Syne', sans-serif" ${String(layer.fontFamily).includes('Syne') ? 'selected' : ''}>Syne</option>
+                              <option value="'DelaGothicOne', sans-serif" ${String(layer.fontFamily).includes('DelaGothicOne') ? 'selected' : ''}>Dela Gothic</option>
+                            </optgroup>
+                            <optgroup label="日文">
+                              <option value="'NotoSansJP', sans-serif" ${String(layer.fontFamily).includes('NotoSansJP') ? 'selected' : ''}>Noto Sans JP</option>
+                              <option value="'SourceHanSerif', serif" ${String(layer.fontFamily).includes('SourceHanSerif') && !String(layer.fontFamily).includes('SC') && !String(layer.fontFamily).includes('K') ? 'selected' : ''}>思源宋体 (日)</option>
+                              <option value="'ZenMaruGothic', sans-serif" ${String(layer.fontFamily).includes('ZenMaruGothic') ? 'selected' : ''}>Zen Maru Gothic</option>
+                            </optgroup>
+                            <optgroup label="韩文">
+                              <option value="'SourceHanSerifK', serif" ${String(layer.fontFamily).includes('SourceHanSerifK') ? 'selected' : ''}>思源宋体 (韩)</option>
+                              <option value="'NanumMyeongjo', serif" ${String(layer.fontFamily).includes('NanumMyeongjo') ? 'selected' : ''}>Nanum 明朝</option>
+                              <option value="'NanumPenScript', cursive" ${String(layer.fontFamily).includes('NanumPenScript') ? 'selected' : ''}>Nanum 手写</option>
+                            </optgroup>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="control-row">
+                      <div class="control-label">字号</div>
+                      <div class="control-content">
                         <input data-prop="fontSize" data-layer-id="${layer.id}" type="range" min="10" max="120" value="${layer.fontSize}" />
+                        <span class="value-display">${layer.fontSize}</span>
                       </div>
-                      <div class="typo-row">
-                        <label class="typo-label">字距 <output>${layer.letterSpacing}px</output></label>
-                        <input data-prop="letterSpacing" data-layer-id="${layer.id}" type="range" min="0" max="40" value="${layer.letterSpacing}" />
+                    </div>
+                    <div class="control-row">
+                      <div class="control-label">字距</div>
+                      <div class="control-content">
+                        <input data-prop="letterSpacing" data-layer-id="${layer.id}" type="range" min="0" max="40" value="${layer.letterSpacing ?? 0}" />
+                        <span class="value-display">${layer.letterSpacing ?? 0}</span>
                       </div>
-                      <label class="checkbox-row">
-                        <input data-prop="isBold" data-layer-id="${layer.id}" type="checkbox" ${layer.isBold ? 'checked' : ''} />
-                        <span>加粗</span>
-                      </label>
+                    </div>
+                    <div class="control-row">
+                      <div class="control-label">文字颜色</div>
+                      <div class="control-content" style="justify-content:space-between;">
+                        <input data-prop="color" data-layer-id="${layer.id}" type="color" value="${layer.color}" class="color-swatch" />
+                        <label class="check-label"><input data-prop="isBold" data-layer-id="${layer.id}" type="checkbox" ${layer.isBold ? 'checked' : ''} />加粗</label>
+                      </div>
                     </div>
                   </div>
 
-                  <!-- 样式区块 -->
-                  <div class="prop-section">
-                    <div class="color-row">
-                      <label class="color-label">颜色</label>
-                      <input data-prop="color" data-layer-id="${layer.id}" class="color-picker" type="color" value="${layer.color}" />
-                    </div>
-                    <label class="checkbox-row">
+                  <!-- Card 2: Stroke -->
+                  <div class="ref-card">
+                    <div class="ref-card-header">
                       <input data-prop="hasStroke" data-layer-id="${layer.id}" type="checkbox" ${layer.hasStroke ? 'checked' : ''} />
-                      <span>启用描边</span>
-                    </label>
-                    ${layer.hasStroke ? `
-                    <div class="color-row">
-                      <label class="color-label">描边颜色</label>
-                      <input data-prop="strokeColor" data-layer-id="${layer.id}" class="color-picker" type="color" value="${layer.strokeColor}" />
+                      <span class="ref-card-title">描边</span>
+                      <span style="font-size:11px;color:#aaa;white-space:nowrap;">描边颜色</span>
+                      <input data-prop="strokeColor" data-layer-id="${layer.id}" type="color" value="${layer.strokeColor}" class="color-swatch" />
                     </div>
-                    <div class="typo-row">
-                      <label class="typo-label">描边宽度 <output>${layer.strokeWidth}px</output></label>
-                      <input data-prop="strokeWidth" data-layer-id="${layer.id}" type="range" min="0" max="15" value="${layer.strokeWidth}" />
+                    ${layer.hasStroke ? `<div class="ref-card-body">
+                      <div class="control-row">
+                        <div class="control-label">描边宽度</div>
+                        <div class="control-content">
+                          <input data-prop="strokeWidth" data-layer-id="${layer.id}" type="range" min="0" max="15" value="${layer.strokeWidth}" />
+                          <span class="value-display">${layer.strokeWidth}</span>
+                        </div>
+                      </div>
+                    </div>` : ''}
+                  </div>
+
+                  <!-- Card 3: Decorations -->
+                  <div class="ref-card">
+                    <div class="ref-card-header">
+                      <input data-prop="showDecorations" data-layer-id="${layer.id}" type="checkbox" ${layer.showDecorations ? 'checked' : ''} />
+                      <span class="ref-card-title">添加波点</span>
                     </div>
-                    ` : ''}
+                    ${layer.showDecorations ? `<div class="ref-card-body">
+                      <div class="control-row" style="min-height:unset;padding:8px 0;">
+                        <div class="control-label">形状</div>
+                        <div class="control-content">
+                          <div class="shape-picker">
+                            <button class="shape-pick-btn ${layer.decorationShape === 'circle' ? 'active' : ''}" data-prop="decorationShape" data-val="circle" data-layer-id="${layer.id}">${ICONS.DOT}</button>
+                            <button class="shape-pick-btn ${layer.decorationShape === 'star' ? 'active' : ''}" data-prop="decorationShape" data-val="star" data-layer-id="${layer.id}">${ICONS.STAR}</button>
+                            <button class="shape-pick-btn ${layer.decorationShape === 'raindrop' ? 'active' : ''}" data-prop="decorationShape" data-val="raindrop" data-layer-id="${layer.id}">${ICONS.RAINDROP}</button>
+                            <button class="shape-pick-btn ${layer.decorationShape === 'square' ? 'active' : ''}" data-prop="decorationShape" data-val="square" data-layer-id="${layer.id}">${ICONS.SQUARE}</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="control-row">
+                        <div class="control-label">颜色</div>
+                        <div class="control-content">
+                          <input data-prop="decorationColor" data-layer-id="${layer.id}" type="color" value="${layer.decorationColor || '#F472B6'}" class="color-swatch" />
+                        </div>
+                      </div>
+                      <div class="control-row">
+                        <div class="control-label">大小</div>
+                        <div class="control-content">
+                          <input data-prop="decorationRadius" data-layer-id="${layer.id}" type="range" min="3" max="40" value="${layer.decorationRadius}" />
+                          <span class="value-display">${layer.decorationRadius}</span>
+                        </div>
+                      </div>
+                      <div class="control-row">
+                        <div class="control-label">数量</div>
+                        <div class="control-content">
+                          <input data-prop="decorationDensity" data-layer-id="${layer.id}" type="range" min="1" max="100" value="${layer.decorationDensity ?? 20}" />
+                          <span class="value-display">${layer.decorationDensity ?? 20}</span>
+                        </div>
+                      </div>
+                      <div class="control-row">
+                        <div class="control-label">分散</div>
+                        <div class="control-content">
+                          <input data-prop="decorationScatter" data-layer-id="${layer.id}" type="range" min="0" max="50" value="${layer.decorationScatter ?? 10}" />
+                          <span class="value-display">${layer.decorationScatter ?? 10}</span>
+                        </div>
+                      </div>
+                      <div class="control-row" style="margin-bottom:4px;">
+                        <div class="control-label">层级</div>
+                        <div class="control-content">
+                          <div class="layer-pick layer-pick--seg">
+                            <button class="layer-pick-btn ${(!layer.decorationLayering || layer.decorationLayering === 'below') ? 'active' : ''}" data-prop="decorationLayering" data-val="below" data-layer-id="${layer.id}">文字下方</button>
+                            <button class="layer-pick-btn ${layer.decorationLayering === 'above' ? 'active' : ''}" data-prop="decorationLayering" data-val="above" data-layer-id="${layer.id}">文字上方</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>` : ''}
+                  </div>
+
+                  <!-- Card 4: Text Jitter -->
+                  <div class="ref-card">
+                    <div class="ref-card-header">
+                      <input data-prop="showTextJitter" data-layer-id="${layer.id}" type="checkbox" ${layer.showTextJitter ? 'checked' : ''} />
+                      <span class="ref-card-title">随机性</span>
+                    </div>
+                    ${layer.showTextJitter ? `<div class="ref-card-body">
+                      <div class="control-row">
+                        <div class="control-label">文字大小</div>
+                        <div class="control-content">
+                          <input data-prop="jitterSize" data-layer-id="${layer.id}" type="range" min="0" max="100" value="${layer.jitterSize ?? 50}" />
+                          <span class="value-display">${layer.jitterSize ?? 50}</span>
+                        </div>
+                      </div>
+                      <div class="control-row">
+                        <div class="control-label">文字起伏</div>
+                        <div class="control-content">
+                          <input data-prop="jitterFrequency" data-layer-id="${layer.id}" type="range" min="0" max="100" value="${layer.jitterFrequency ?? 50}" />
+                          <span class="value-display">${layer.jitterFrequency ?? 50}</span>
+                        </div>
+                      </div>
+                      <div class="control-row" style="margin-bottom:4px;">
+                        <div class="control-label">文字偏转</div>
+                        <div class="control-content">
+                          <input data-prop="jitterScatter" data-layer-id="${layer.id}" type="range" min="0" max="50" value="${layer.jitterScatter ?? 25}" />
+                          <span class="value-display">${layer.jitterScatter ?? 25}</span>
+                        </div>
+                      </div>
+                    </div>` : ''}
                   </div>
                 `
-                }
+            }
               </div>
             `
-                : ""
-            }
-          </article>
+            : ''
+          }
+              </div>
+            </article>
         `;
       })
       .join("");
-
-    const hasPendingLayer = layers.some((layer) => !layer.isDraft && layer.status === "pending");
 
     leftPanelRoot.innerHTML = `
       ${uploadStateHtml}
       ${image.src ? `
       <section class="panel-section">
         <div class="layer-stack">${layerCardsHtml}</div>
-        ${hasPendingLayer ? "" : `<button class="add-layer-button" data-action="add-layer" type="button" style="margin-top: 10px;">添加新文字路径</button>`}
       </section>
+      <!-- 底部固定动作区 -->
+      <div class="panel-actions">
+        <button class="add-layer-button" data-action="add-layer" type="button">添加新文字路径</button>
+        <button class="export-button" data-action="export" type="button">导出图片</button>
+      </div>
       ` : ''}
     `;
 
+    // Handlers
     leftPanelRoot.querySelector('[data-action="pick-image"]')?.addEventListener("click", () => input.click());
-    leftPanelRoot.querySelector('[data-action="add-layer"]')?.addEventListener("click", () => {
+
+    leftPanelRoot.querySelector('.add-layer-button')?.addEventListener("click", () => {
       const layer = createLayerRecord({
         type: "path",
         text: "",
-        fontFamily: "'SourceHanSansHWSC', sans-serif",
+        fontFamily: "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
         fontSize: 20,
         color: "#000000",
         letterSpacing: 0,
@@ -1300,11 +1744,20 @@ export function initImageStage() {
       layer.isDraft = true;
       layers.push(layer);
       activeLayerId = layer.id;
-      expandedLayerId = null;
       renderCanvasFromLayers();
       renderLeftPanel();
       const inputNode = leftPanelRoot.querySelector(`[data-role="layer-name-input"][data-layer-id="${layer.id}"]`);
       inputNode?.focus();
+    });
+
+    leftPanelRoot.querySelector('[data-action="export"]')?.addEventListener("click", async () => {
+      await exportCompositeImage(image, overlay, layers, isBaseImageVisible);
+    });
+
+    leftPanelRoot.querySelector('[data-action="toggle-base-image"]')?.addEventListener("click", () => {
+      isBaseImageVisible = !isBaseImageVisible;
+      updateCanvasUI();
+      renderLeftPanel(); // Update eye icon state
     });
 
     leftPanelRoot.querySelectorAll('[data-role="layer-name-input"]').forEach((nameInput) => {
@@ -1316,7 +1769,6 @@ export function initImageStage() {
         layer.isDraft = false;
         layer.status = "pending";
         activeLayerId = layer.id;
-        expandedLayerId = layer.id;
         renderCanvasFromLayers();
         renderLeftPanel();
         saveState();
@@ -1327,79 +1779,141 @@ export function initImageStage() {
       nameInput.addEventListener("blur", finalize);
     });
 
-    leftPanelRoot.querySelectorAll('[data-action="edit-layer"]').forEach((button) => {
+    leftPanelRoot.querySelectorAll('[data-action="expand-layer"]').forEach((button) => {
       button.addEventListener("click", () => {
         const id = button.getAttribute("data-layer-id");
-        activeLayerId = id;
-        expandedLayerId = expandedLayerId === id ? null : id;
+        if (activeLayerId !== id) {
+          activeLayerId = id;
+        } else {
+          activeLayerId = null;
+        }
         renderCanvasFromLayers();
         renderLeftPanel();
-        scrollActiveLayerCardIntoView();
-        updateSelectionStyles();
+        if (activeLayerId) {
+          scrollActiveLayerCardIntoView();
+          updateSelectionStyles();
+        }
       });
     });
 
     leftPanelRoot.querySelectorAll('[data-action="delete-layer"]').forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", (e) => {
+        e.stopPropagation();
         const id = button.getAttribute("data-layer-id");
         layers = layers.filter((layer) => layer.id !== id);
         if (activeLayerId === id) activeLayerId = layers[0]?.id ?? null;
-        if (expandedLayerId === id) expandedLayerId = null;
         renderCanvasFromLayers();
         renderLeftPanel();
         saveState();
       });
     });
 
-    leftPanelRoot.querySelectorAll('[data-action="quick-shape"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-layer-id");
-        const shape = btn.getAttribute("data-shape");
-        updateLayerAndRender(id, (layer) => {
-          const oldMode = layer.pathMode;
-          // Cache current freehand path if switching AWAY from freehand
-          if (oldMode === "freehand" && shape !== "freehand") {
-            layer.freehandD = layer.d;
-          }
-          layer.pathMode = shape;
-          if (shape === "freehand") {
-            layer.d = layer.freehandD || "";
-            layer.status = layer.d ? "completed" : "pending";
-          } else {
-            layer.d = generateStaticPath(shape);
-            layer.status = "completed";
-          }
-        }, true);
-        saveState();
+    leftPanelRoot.querySelectorAll('[data-action="copy-layer"]').forEach((button) => {
+      button.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = button.getAttribute("data-layer-id");
+        const originLayer = layers.find(l => l.id === id);
+        if (originLayer) {
+          const cloned = cloneLayers([originLayer])[0];
+          cloned.id = createRandomPathId();
+          if (cloned.pathElementId) cloned.pathElementId = createRandomPathId();
+          if (cloned.type === "path") cloned.d = originLayer.d;
+          const index = layers.findIndex(l => l.id === id);
+          layers.splice(index + 1, 0, cloned);
+          activeLayerId = cloned.id;
+          renderCanvasFromLayers();
+          renderLeftPanel();
+          saveState();
+        }
       });
     });
 
-
-
-    leftPanelRoot.querySelectorAll('.segment-btn[data-prop="pathMode"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
+    leftPanelRoot.querySelectorAll('[data-action="quick-shape"]').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const id = btn.getAttribute("data-layer-id");
-        const val = btn.getAttribute("data-val");
+        const val = btn.getAttribute("data-shape");
+
         updateLayerAndRender(id, (layer) => {
-          const oldMode = layer.pathMode;
+          const oldMode = layer.pathMode || "freehand";
           if (oldMode === "freehand" && val !== "freehand") {
-             layer.freehandD = layer.d;
+            layer.freehandD = layer.d;
           }
           layer.pathMode = val;
           if (val !== "freehand") {
             layer.d = generateStaticPath(val);
             layer.status = "completed";
           } else {
-            // Restore from cache instead of instant clear
             layer.d = layer.freehandD || "";
             layer.status = layer.d ? "completed" : "pending";
+          }
+        });
+      });
+    });
+
+    leftPanelRoot.querySelectorAll('.segment-btn').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-layer-id");
+        const prop = btn.getAttribute("data-prop");
+        const val = btn.getAttribute("data-val");
+
+        updateLayerAndRender(id, (layer) => {
+          if (prop === "pathMode") {
+            const oldMode = layer.pathMode;
+            if (oldMode === "freehand" && val !== "freehand") {
+              layer.freehandD = layer.d;
+            }
+            layer.pathMode = val;
+            if (val !== "freehand") {
+              layer.d = generateStaticPath(val);
+              layer.status = "completed";
+            } else {
+              layer.d = layer.freehandD || "";
+              layer.status = layer.d ? "completed" : "pending";
+            }
+          } else if (prop === "decorationShape") {
+            layer.decorationShape = val;
+          } else if (prop === "decorationLayering") {
+            layer.decorationLayering = val;
           }
         }, true);
         saveState();
       });
     });
 
+    // shape-pick-btn: decorationShape selector
+    leftPanelRoot.querySelectorAll('.shape-pick-btn').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-layer-id");
+        const val = btn.getAttribute("data-val");
+        updateLayerAndRender(id, (layer) => { layer.decorationShape = val; }, true);
+        saveState();
+      });
+    });
 
+    // layer-pick-btn: decorationLayering selector
+    leftPanelRoot.querySelectorAll('.layer-pick-btn').forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-layer-id");
+        const val = btn.getAttribute("data-val");
+        updateLayerAndRender(id, (layer) => { layer.decorationLayering = val; }, true);
+        saveState();
+      });
+    });
+
+
+    leftPanelRoot.querySelectorAll("[data-action='toggle-decor']").forEach((header) => {
+      header.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = header.getAttribute("data-layer-id");
+        updateLayerAndRender(id, (layer) => {
+          layer.isDecorExpanded = !layer.isDecorExpanded;
+        }, true);
+      });
+    });
 
     leftPanelRoot.querySelectorAll('input[data-prop], select[data-prop], textarea[data-prop]').forEach((control) => {
       const id = control.getAttribute("data-layer-id");
@@ -1416,20 +1930,64 @@ export function initImageStage() {
           if (prop === "strokeWidth") layer.strokeWidth = Number(control.value) || 0;
           if (prop === "loop") layer.loop = control.checked;
           if (prop === "isVertical") layer.isVertical = control.checked;
-          if (prop === "text") layer.text = control.value ?? "";
+          if (prop === "fillPath") {
+            layer.fillPath = control.checked;
+            if (layer.fillPath) {
+              layer.letterSpacing = 25;
+            }
+          }
+          if (prop === "showDecorations") {
+            layer.showDecorations = control.checked;
+            if (layer.showDecorations) layer.needsDecorUpdate = true;
+          }
+          if (prop === "decorationColor") layer.decorationColor = control.value;
+          if (prop === "decorationRadius") layer.decorationRadius = Number(control.value) || 0;
+          if (prop === "decorationDensity") {
+            layer.decorationDensity = Number(control.value) || 1;
+            layer.needsDecorUpdate = true;
+          }
+          if (prop === "decorationScatter") {
+            layer.decorationScatter = Number(control.value) || 0;
+            layer.needsDecorUpdate = true;
+          }
+          if (prop === "showDecorations") layer.showDecorations = control.checked;
+          if (prop === "showTextJitter") layer.showTextJitter = control.checked;
+          if (prop === "jitterSize") layer.jitterSize = Number(control.value) || 0;
+          if (prop === "jitterFrequency") layer.jitterFrequency = Number(control.value) || 0;
+          if (prop === "jitterScatter") layer.jitterScatter = Number(control.value) || 0;
+          if (prop === "decorationDensity") layer.decorationDensity = Number(control.value) || 1;
+          if (prop === "decorationScatter") layer.decorationScatter = Number(control.value) || 0;
+          if (prop === "text") {
+            layer.text = control.value ?? "";
+            layer.textDNA = null; // Mark for regeneration
+          }
         }, rerenderPanel);
       };
+
       const debouncedApply = debounce(() => apply(false), 200);
 
+      control.addEventListener("change", () => {
+        if (prop === "loop" || prop === "isVertical" || prop === "fillPath" || prop === "showDecorations") {
+          apply(true);
+        }
+      });
+
       control.addEventListener("input", () => {
-        if (prop === "color" || prop === "strokeColor") {
+        if (prop === "loop" || prop === "isVertical" || prop === "fillPath") return;
+
+        // Live update value-display span next to range inputs
+        if (control.type === "range") {
+          updateSliderFill(control);
+          const display = control.nextElementSibling;
+          if (display && (display.classList.contains('value-display') || display.classList.contains('numeric-feedback'))) {
+            display.textContent = control.value;
+          }
+        }
+
+        if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
           debouncedApply();
         } else {
           apply(false);
-        }
-        if (prop === "fontSize" || prop === "letterSpacing" || prop === "strokeWidth") {
-          const output = control.previousElementSibling?.querySelector("output");
-          if (output) output.textContent = `${control.value}px`;
         }
       });
 
@@ -1488,11 +2046,15 @@ export function initImageStage() {
     });
 
     refreshHistoryButtons();
+    // Initialise all slider fill gradients after panel render
+    leftPanelRoot.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
   };
 
-  // One-time binding for static toolbar buttons
-  document.querySelector('[data-action="export"]')?.addEventListener("click", async () => {
-    await exportCompositeImage(image, overlay, layers);
+  // 动态控件绑定已移入 renderLeftPanel
+
+  // 右侧画板固定按钮绑定
+  document.querySelector('[data-action="export-right"]')?.addEventListener("click", async () => {
+    await exportCompositeImage(image, overlay, layers, isBaseImageVisible);
   });
 
 
@@ -1518,10 +2080,10 @@ export function initImageStage() {
 
     for (const layer of hitTestOrder) {
       if (!layer.box) continue;
-      const hit = (layer.pathMode === "freehand") 
-          ? isPointInPencilStroke(p.x, p.y, layer) 
-          : isPointInBBox(p.x, p.y, layer);
-      
+      const hit = (layer.pathMode === "freehand")
+        ? isPointInPencilStroke(p.x, p.y, layer)
+        : isPointInBBox(p.x, p.y, layer);
+
       if (hit) {
         hitLayer = layer;
         break;
@@ -1547,7 +2109,6 @@ export function initImageStage() {
     const activeLayer = getActiveLayer();
     if (activeLayer && !activeLayer.isDraft && activeLayer.status === "completed") {
       activeLayerId = null;
-      expandedLayerId = null;
       renderCanvasFromLayers();
       renderLeftPanel();
       updateSelectionStyles();
@@ -1578,7 +2139,6 @@ export function initImageStage() {
 
     if (drawingState.startedWithCompletedSelection) {
       activeLayerId = null;
-      expandedLayerId = null;
       renderCanvasFromLayers();
       renderLeftPanel();
       updateSelectionStyles();
@@ -1619,7 +2179,7 @@ export function initImageStage() {
           const rad = -(gizmoState.startRot) * Math.PI / 180;
           const urx = dx * Math.cos(rad) - dy * Math.sin(rad);
           const ury = dx * Math.sin(rad) + dy * Math.cos(rad);
-          
+
           const ratioX = Math.abs(urx) / (gizmoState.boxWidth / 2);
           const ratioY = Math.abs(ury) / (gizmoState.boxHeight / 2);
           const newScale = e.shiftKey ? Math.max(ratioX, ratioY) : Math.max(ratioX, ratioY);
@@ -1647,7 +2207,7 @@ export function initImageStage() {
         const p = localPointInLayer(layer, e.clientX, e.clientY);
         if (!p) return;
         extendState.appendedPoints.push(p);
-        
+
         const simplified = simplifyPointsRdp(extendState.appendedPoints, RDP_EPSILON);
         const combined = extendState.basePoints.concat(simplified);
         const simplifiedAll = simplifyPointsRdp(combined, RDP_EPSILON);
@@ -1671,7 +2231,6 @@ export function initImageStage() {
         );
         if (movedDistance > CLICK_LENGTH_THRESHOLD) {
           activeLayerId = null;
-          expandedLayerId = null;
           renderCanvasFromLayers();
           renderLeftPanel();
           updateSelectionStyles();
@@ -1690,8 +2249,8 @@ export function initImageStage() {
         if (movedDistance > CLICK_LENGTH_THRESHOLD) {
           const layer = getActiveLayer();
           if (layer && (layer.isDraft || layer.status === "pending" || layer.pathMode === "freehand")) {
-             layer.d = "";
-             layer.freehandD = "";
+            layer.d = "";
+            layer.freehandD = "";
           }
           drawingState.activePath = createStrokePath(overlay);
         } else {
@@ -1737,7 +2296,7 @@ export function initImageStage() {
     const startedWithCompletedSelection = drawingState.startedWithCompletedSelection;
     const source = getActiveLayer();
     const text = DIRECT_DRAW_TEXT;
-    const fontFamily = source?.fontFamily ?? "'SourceHanSansHWSC', sans-serif";
+    const fontFamily = source?.fontFamily ?? "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
     const fontSize = source?.fontSize ?? 20;
     const color = source?.color ?? "#000000";
     const letterSpacing = source?.letterSpacing ?? 0;
@@ -1753,7 +2312,6 @@ export function initImageStage() {
       drawingState.activePath?.remove();
       if (startedWithCompletedSelection) {
         activeLayerId = null;
-        expandedLayerId = null;
         renderCanvasFromLayers();
         renderLeftPanel();
         updateSelectionStyles();
@@ -1774,21 +2332,21 @@ export function initImageStage() {
       const record = shouldReuseActiveLayer
         ? source
         : createLayerRecord({
-            type: "path",
-            text,
-            fontFamily,
-            fontSize,
-            color,
-            letterSpacing,
-            isBold,
-            hasStroke,
-            strokeColor,
-            strokeWidth,
-            d,
-            x: null,
-            y: null,
-            pathElementId: drawingState.activePath.id,
-          });
+          type: "path",
+          text,
+          fontFamily,
+          fontSize,
+          color,
+          letterSpacing,
+          isBold,
+          hasStroke,
+          strokeColor,
+          strokeWidth,
+          d,
+          x: null,
+          y: null,
+          pathElementId: drawingState.activePath.id,
+        });
       record.type = "path";
       record.text = record.text || text || "未命名图层";
       record.fontFamily = fontFamily;
@@ -1888,20 +2446,19 @@ export function initImageStage() {
     if (!file) return;
 
     uploadFileName = file.name;
-    
+
     // Hard Reset Logic
     layers = [];
     history = [];
     historyIndex = -1;
     activeLayerId = null;
-    expandedLayerId = null;
     overlay.replaceChildren();
 
 
     try {
       // Intercept original file and downsample it before set to image.src
       const compressedUrl = await downsampleImage(file, 1920);
-      
+
       if (objectUrl && objectUrl.startsWith("blob:")) {
         URL.revokeObjectURL(objectUrl);
       }
