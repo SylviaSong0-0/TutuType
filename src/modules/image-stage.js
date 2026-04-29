@@ -1986,6 +1986,17 @@ export function initImageStage() {
         }
       });
 
+      const throttledApply = (function() {
+        let lastCall = 0;
+        return function(force = false) {
+          const now = Date.now();
+          if (force || now - lastCall > 32) { // Target ~30fps
+            apply(false);
+            lastCall = now;
+          }
+        };
+      })();
+
       control.addEventListener("input", () => {
         if (prop === "loop" || prop === "isVertical" || prop === "fillPath") return;
 
@@ -1998,10 +2009,18 @@ export function initImageStage() {
           }
         }
 
-        if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
-          debouncedApply();
+        if (isLikelyMobileDevice()) {
+          if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
+            debouncedApply();
+          } else {
+            throttledApply();
+          }
         } else {
-          apply(false);
+          if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
+            debouncedApply();
+          } else {
+            apply(false);
+          }
         }
       });
 

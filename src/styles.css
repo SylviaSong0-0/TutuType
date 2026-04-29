@@ -2359,8 +2359,13 @@ input[type="range"]::-moz-range-thumb {
   html, body {
     height: 100% !important;
     height: 100dvh !important;
+    min-height: 100% !important;
+    min-height: 100dvh !important;
+    overscroll-behavior: none !important;
     overflow: hidden !important;
     background-color: #f8fafc !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   input[type="range"],
@@ -2379,7 +2384,10 @@ input[type="range"]::-moz-range-thumb {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    padding: 0 !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0 !important;
+    box-sizing: border-box !important;
     gap: 8px !important;
   }
 
