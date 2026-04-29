@@ -1594,7 +1594,10 @@ export function initImageStage() {
                     <div class="control-row">
                       <div class="control-label">文字颜色</div>
                       <div class="control-content" style="justify-content:space-between;">
-                        <input data-prop="color" data-layer-id="${layer.id}" type="color" value="${layer.color}" class="color-swatch" />
+                        <div class="color-swatch-trigger" 
+                             data-prop="color" 
+                             data-layer-id="${layer.id}" 
+                             style="background-color: ${layer.color};"></div>
                         <label class="check-label"><input data-prop="isBold" data-layer-id="${layer.id}" type="checkbox" ${layer.isBold ? 'checked' : ''} />加粗</label>
                       </div>
                     </div>
@@ -1606,7 +1609,10 @@ export function initImageStage() {
                       <input data-prop="hasStroke" data-layer-id="${layer.id}" type="checkbox" ${layer.hasStroke ? 'checked' : ''} />
                       <span class="ref-card-title">描边</span>
                       <span style="font-size:11px;color:#aaa;white-space:nowrap;">描边颜色</span>
-                      <input data-prop="strokeColor" data-layer-id="${layer.id}" type="color" value="${layer.strokeColor}" class="color-swatch" />
+                      <div class="color-swatch-trigger" 
+                           data-prop="strokeColor" 
+                           data-layer-id="${layer.id}" 
+                           style="background-color: ${layer.strokeColor};"></div>
                     </div>
                     ${layer.hasStroke ? `<div class="ref-card-body">
                       <div class="control-row">
@@ -1640,7 +1646,10 @@ export function initImageStage() {
                       <div class="control-row">
                         <div class="control-label">颜色</div>
                         <div class="control-content">
-                          <input data-prop="decorationColor" data-layer-id="${layer.id}" type="color" value="${layer.decorationColor || '#F472B6'}" class="color-swatch" />
+                          <div class="color-swatch-trigger" 
+                               data-prop="decorationColor" 
+                               data-layer-id="${layer.id}" 
+                               style="background-color: ${layer.decorationColor || '#F472B6'};"></div>
                         </div>
                       </div>
                       <div class="control-row">
@@ -2000,6 +2009,10 @@ export function initImageStage() {
       control.addEventListener("input", () => {
         if (prop === "loop" || prop === "isVertical" || prop === "fillPath") return;
 
+        // CRITICAL: For color pickers in Safari, skip real-time updates to prevent 
+        // renderLeftPanel() from destroying the DOM node and crashing the system picker.
+        if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") return;
+
         // Live update value-display span next to range inputs
         if (control.type === "range") {
           updateSliderFill(control);
@@ -2010,17 +2023,9 @@ export function initImageStage() {
         }
 
         if (isLikelyMobileDevice()) {
-          if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
-            debouncedApply();
-          } else {
-            throttledApply();
-          }
+          throttledApply();
         } else {
-          if (prop === "color" || prop === "strokeColor" || prop === "decorationColor") {
-            debouncedApply();
-          } else {
-            apply(false);
-          }
+          apply(false);
         }
       });
 
@@ -2081,6 +2086,9 @@ export function initImageStage() {
     refreshHistoryButtons();
     // Initialise all slider fill gradients after panel render
     leftPanelRoot.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
+    
+    // V3.4: Init custom color pickers
+    initCustomColorPickers();
   };
 
   // 动态控件绑定已移入 renderLeftPanel
@@ -2523,4 +2531,201 @@ export function initImageStage() {
   renderLeftPanel();
   refreshHistoryButtons();
   updateCanvasUI();
+
+  /**
+   * V3.4: Custom Color Picker Logic (Safari Stable)
+   * Moved inside initImageStage to access layers and render functions
+   */
+  function initCustomColorPickers() {
+    const triggers = document.querySelectorAll('.color-swatch-trigger');
+    triggers.forEach(trigger => {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openColorPickerPopover(trigger);
+      });
+    });
+  }
+
+  let activeColorPopover = null;
+
+  function openColorPickerPopover(trigger) {
+    if (activeColorPopover) closeColorPickerPopover();
+
+    const layerId = trigger.getAttribute('data-layer-id');
+    const prop = trigger.getAttribute('data-prop');
+    const currentColor = trigger.style.backgroundColor;
+
+    const popover = document.createElement('div');
+    popover.className = 'color-picker-popover';
+    popover.style.cssText = `
+      position: fixed; z-index: 10000; background: white;
+      padding: 12px; border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      width: 200px; display: flex; flex-direction: column; gap: 10px;
+      border: 1px solid rgba(0,0,0,0.05);
+    `;
+
+    popover.innerHTML = `
+      <div class="cp-sv-box" style="height: 120px; background: red; border-radius: 4px; position: relative; cursor: crosshair; overflow: hidden;">
+        <div style="background: linear-gradient(to right, #fff, transparent); width: 100%; height: 100%; position: absolute;"></div>
+        <div style="background: linear-gradient(to top, #000, transparent); width: 100%; height: 100%; position: absolute;"></div>
+        <div class="cp-cursor" style="width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 3px rgba(0,0,0,0.4); z-index: 2;"></div>
+      </div>
+      <div class="cp-hue-slider" style="height: 14px; border-radius: 7px; background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%); position: relative; cursor: pointer;">
+        <div class="cp-hue-cursor" style="width: 16px; height: 16px; background: white; border: 1px solid #ddd; border-radius: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 2px 4px rgba(0,0,0,0.15);"></div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center; padding-top: 4px; border-top: 1px solid #f0f0f0;">
+        <div class="cp-preview" style="width: 28px; height: 28px; border-radius: 4px; border: 1px solid #eee;"></div>
+        <span class="cp-hex" style="font-family: monospace; font-size: 13px; font-weight: 500; color: #333; flex: 1;">#FFFFFF</span>
+      </div>
+    `;
+
+    const rect = trigger.getBoundingClientRect();
+    popover.style.left = `${rect.left}px`;
+    popover.style.top = `${rect.bottom + 8}px`;
+    
+    if (rect.left + 220 > window.innerWidth) popover.style.left = `${window.innerWidth - 220}px`;
+    if (rect.bottom + 250 > window.innerHeight) popover.style.top = `${rect.top - 240}px`;
+
+    document.body.appendChild(popover);
+    activeColorPopover = popover;
+
+    const svBox = popover.querySelector('.cp-sv-box');
+    const hueSlider = popover.querySelector('.cp-hue-slider');
+    const preview = popover.querySelector('.cp-preview');
+    const hexDisplay = popover.querySelector('.cp-hex');
+    const cursor = popover.querySelector('.cp-cursor');
+    const hueCursor = popover.querySelector('.cp-hue-cursor');
+
+    let h = 0, s = 0, v = 1;
+
+    const update = () => {
+      const rgb = hsvToRgb(h, s, v);
+      const hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+      svBox.style.backgroundColor = `hsl(${h}, 100%, 50%)`;
+      preview.style.backgroundColor = hex;
+      hexDisplay.textContent = hex.toUpperCase();
+      cursor.style.left = `${s * 100}%`;
+      cursor.style.top = `${(1 - v) * 100}%`;
+      hueCursor.style.left = `${(h / 360) * 100}%`;
+      
+      const layer = layers.find(l => l.id === layerId);
+      if (layer) {
+        layer[prop] = hex;
+        trigger.style.backgroundColor = hex;
+        renderCanvasFromLayers(); 
+      }
+    };
+
+    const handleSV = (e) => {
+      const r = svBox.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      s = Math.max(0, Math.min(1, (touch.clientX - r.left) / r.width));
+      v = Math.max(0, Math.min(1, 1 - (touch.clientY - r.top) / r.height));
+      update();
+    };
+
+    const handleHue = (e) => {
+      const r = hueSlider.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      h = Math.max(0, Math.min(360, ((touch.clientX - r.left) / r.width) * 360));
+      update();
+    };
+
+    svBox.addEventListener('pointerdown', (e) => {
+      svBox.setPointerCapture(e.pointerId);
+      handleSV(e);
+      const onMove = (me) => handleSV(me);
+      const onUp = () => {
+        svBox.removeEventListener('pointermove', onMove);
+        saveState();
+      };
+      svBox.addEventListener('pointermove', onMove);
+      svBox.addEventListener('pointerup', onUp, { once: true });
+    });
+
+    hueSlider.addEventListener('pointerdown', (e) => {
+      hueSlider.setPointerCapture(e.pointerId);
+      handleHue(e);
+      const onMove = (me) => handleHue(me);
+      const onUp = () => {
+        hueSlider.removeEventListener('pointermove', onMove);
+        saveState();
+      };
+      hueSlider.addEventListener('pointermove', onMove);
+      hueSlider.addEventListener('pointerup', onUp, { once: true });
+    });
+
+    const initialRgb = parseRgb(currentColor);
+    const initialHsv = rgbToHsv(initialRgb.r, initialRgb.g, initialRgb.b);
+    h = initialHsv.h; s = initialHsv.s; v = initialHsv.v;
+    update();
+  }
+
+  function closeColorPickerPopover() {
+    if (activeColorPopover) {
+      activeColorPopover.remove();
+      activeColorPopover = null;
+    }
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    if (activeColorPopover && !activeColorPopover.contains(e.target) && !e.target.classList.contains('color-swatch-trigger')) {
+      closeColorPickerPopover();
+    }
+  });
+
+  function hsvToRgb(h, s, v) {
+    let r, g, b;
+    const i = Math.floor(h / 60);
+    const f = h / 60 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0: r = v, g = t, b = p; break;
+      case 1: r = q, g = v, b = p; break;
+      case 2: r = p, g = v, b = t; break;
+      case 3: r = p, g = q, b = v; break;
+      case 4: r = t, g = p, b = v; break;
+      case 5: r = v, g = p, b = q; break;
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
+
+  function rgbToHex(r, g, b) {
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+
+  function rgbToHsv(r, g, b) {
+    r /= 255, g /= 255, b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, v = max;
+    const d = max - min;
+    s = max === 0 ? 0 : d / max;
+    if (max === min) { h = 0; }
+    else {
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return { h: h * 360, s, v };
+  }
+
+  function parseRgb(rgbStr) {
+    const m = rgbStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) return { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) };
+    if (rgbStr.startsWith('#')) {
+      const r = parseInt(rgbStr.slice(1, 3), 16);
+      const g = parseInt(rgbStr.slice(3, 5), 16);
+      const b = parseInt(rgbStr.slice(5, 7), 16);
+      return { r, g, b };
+    }
+    return { r: 255, g: 255, b: 255 };
+  }
 }
+
+
