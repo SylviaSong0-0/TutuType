@@ -2363,11 +2363,22 @@ input[type="range"]::-moz-range-thumb {
     background-color: #f8fafc !important;
   }
 
+  input[type="range"],
+  .color-swatch {
+    touch-action: none !important;
+  }
+
   .app-shell {
     display: flex !important;
     flex-direction: column-reverse !important;
-    height: 100vh !important;
+    width: 100% !important;
     height: 100dvh !important;
+    max-height: 100dvh !important;
+    background-color: #f8fafc !important;
+    overflow: hidden !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     padding: 0 !important;
     gap: 8px !important;
   }
