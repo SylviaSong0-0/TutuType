@@ -558,8 +558,8 @@ function setHelperPathsVisibility(overlay, isVisible) {
 function serializeSvgToDataUrl(svgNode) {
   const serializer = new XMLSerializer();
   const raw = serializer.serializeToString(svgNode);
-  const encoded = btoa(unescape(encodeURIComponent(raw)));
-  return `data:image/svg+xml;base64,${encoded}`;
+  // Use UTF-8 URI encoding which is safer and has no size limits unlike btoa
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(raw);
 }
 
 function isLikelyMobileDevice() {
@@ -708,26 +708,50 @@ function showLongPressPreviewModal(imageUrl) {
   document.body.appendChild(modal);
 }
 
-async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) {
-  if (!image.src || !image.naturalWidth || !image.naturalHeight) return;
+async function exportCompositeImage(image, overlay, layers, isBaseImageVisible = true) {
+  if (!image.src || !image.naturalWidth || !image.naturalHeight) {
+    alert("图片尚未加载完成，请稍后再试");
+    return;
+  }
 
-  await document.fonts.ready;
+  // Create or show loading indicator
+  let loadingEl = document.getElementById('export-loading-toast');
+  if (!loadingEl) {
+    loadingEl = document.createElement('div');
+    loadingEl.id = 'export-loading-toast';
+    loadingEl.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8); color: white; padding: 16px 24px;
+      border-radius: 12px; z-index: 9999; font-size: 15px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    loadingEl.innerHTML = `<div class="loading-spinner"></div><span>图片生成中，请稍候...</span>`;
+    document.body.appendChild(loadingEl);
+  }
+  loadingEl.style.display = 'flex';
 
-  const displayWidth = overlay.clientWidth;
-  const displayHeight = overlay.clientHeight;
-  if (!displayWidth || !displayHeight) return;
-
-  setHelperPathsVisibility(overlay, false);
-
-  // Actually, we skip base image rendering if toggle is off
-
+  const exportBtn = document.querySelector('[data-action="export-right"]');
+  if (exportBtn) exportBtn.style.opacity = '0.5', exportBtn.style.pointerEvents = 'none';
 
   try {
+    // Wait for fonts properly to ensure quality
+    await document.fonts.ready;
+
+    const displayWidth = overlay.clientWidth;
+    const displayHeight = overlay.clientHeight;
+    if (!displayWidth || !displayHeight) {
+      alert("画布尺寸异常，无法导出");
+      return;
+    }
+
+    setHelperPathsVisibility(overlay, false);
+
     const canvas = document.createElement("canvas");
     canvas.width = image.naturalWidth;
     canvas.height = image.naturalHeight;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) throw new Error("无法创建Canvas上下文");
 
     if (isBaseImageVisible) {
       ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight);
@@ -741,7 +765,7 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) 
     // V6.8: Physical Base64 Font Injection
     const usedFontFamilies = new Set(layers.map(l => {
       const ff = l.fontFamily || "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
-      // Extract the first font name (e.g., 'LXGWWenKaiMono' from "'LXGWWenKaiMono', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif")
+      // Extract the first font name
       const match = ff.match(/'([^']+)'/);
       return match ? match[1] : ff.split(',')[0].trim();
     }));
@@ -768,7 +792,7 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) 
           }
         }
       } catch (e) {
-        // Skip cross-origin sheets that we can't read
+        // Skip cross-origin
       }
     }
 
@@ -781,7 +805,6 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) 
     const styleNode = document.createElementNS("http://www.w3.org/2000/svg", "style");
     styleNode.textContent = fontFaceRules.join("\n");
     exportSvg.insertBefore(styleNode, exportSvg.firstChild);
-
 
     exportSvg.querySelectorAll('[data-hitbox="true"]').forEach((node) => {
       node.setAttribute("stroke", "transparent");
@@ -812,7 +835,6 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) 
     const file = new File([blob], fileName, { type: "image/png" });
     const isMobile = isLikelyMobileDevice();
 
-    // V4.6 Routing Override: Strictly lock Share API to mobile devices
     if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -821,25 +843,26 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible) 
         });
         showToast("图片已保存至本地");
         return;
-
       } catch (error) {
         console.error("Share failed:", error);
-        // Fallback for mobile if sharing is interrupted or fails
         const previewUrl = URL.createObjectURL(blob);
         showLongPressPreviewModal(previewUrl);
         return;
       }
     }
 
-    // Desktop logic: Direct silent download
-    // Mobile fallback (if share is not supported): Show long-press modal
     if (isMobile) {
       const previewUrl = URL.createObjectURL(blob);
       showLongPressPreviewModal(previewUrl);
     } else {
       downloadBlobAsPng(blob, fileName);
     }
+  } catch (error) {
+    console.error("Export Critical Error:", error);
+    alert("导出失败: " + (error.message || "未知错误"));
   } finally {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (exportBtn) exportBtn.style.opacity = '1', exportBtn.style.pointerEvents = 'auto';
     setHelperPathsVisibility(overlay, true);
   }
 }
@@ -1537,27 +1560,18 @@ export function initImageStage() {
                           <select data-prop="fontFamily" data-layer-id="${layer.id}">
                             <optgroup label="中文">
                               <option value="'SourceHanSansHWSC', sans-serif" ${String(layer.fontFamily).includes('SourceHanSansHWSC') ? 'selected' : ''}>思源黑体</option>
-                              <option value="'SourceHanSerifSC', serif" ${String(layer.fontFamily).includes('SourceHanSerifSC') ? 'selected' : ''}>思源宋体</option>
+                              <option value="'SourceHanSerif', serif" ${String(layer.fontFamily).includes('SourceHanSerif') ? 'selected' : ''}>思源宋体</option>
                               <option value="'SmileySans', sans-serif" ${String(layer.fontFamily).includes('SmileySans') ? 'selected' : ''}>得意黑</option>
                               <option value="'LXGWWenKaiMono', serif" ${String(layer.fontFamily).includes('LXGWWenKaiMono') ? 'selected' : ''}>霞鹜文楷</option>
-                              <option value="'Yozai', sans-serif" ${String(layer.fontFamily).includes('Yozai') ? 'selected' : ''}>悠哉字体</option>
-                            </optgroup>
-                            <optgroup label="英文">
-                              <option value="'Inter', sans-serif" ${String(layer.fontFamily).includes('Inter') ? 'selected' : ''}>Inter</option>
-                              <option value="'PlayfairDisplay', serif" ${String(layer.fontFamily).includes('PlayfairDisplay') ? 'selected' : ''}>Playfair</option>
-                              <option value="'Caveat', cursive" ${String(layer.fontFamily).includes('Caveat') ? 'selected' : ''}>Caveat</option>
-                              <option value="'Syne', sans-serif" ${String(layer.fontFamily).includes('Syne') ? 'selected' : ''}>Syne</option>
-                              <option value="'DelaGothicOne', sans-serif" ${String(layer.fontFamily).includes('DelaGothicOne') ? 'selected' : ''}>Dela Gothic</option>
-                            </optgroup>
-                            <optgroup label="日文">
-                              <option value="'NotoSansJP', sans-serif" ${String(layer.fontFamily).includes('NotoSansJP') ? 'selected' : ''}>Noto Sans JP</option>
-                              <option value="'SourceHanSerif', serif" ${String(layer.fontFamily).includes('SourceHanSerif') && !String(layer.fontFamily).includes('SC') && !String(layer.fontFamily).includes('K') ? 'selected' : ''}>思源宋体 (日)</option>
-                              <option value="'ZenMaruGothic', sans-serif" ${String(layer.fontFamily).includes('ZenMaruGothic') ? 'selected' : ''}>Zen Maru Gothic</option>
                             </optgroup>
                             <optgroup label="韩文">
-                              <option value="'SourceHanSerifK', serif" ${String(layer.fontFamily).includes('SourceHanSerifK') ? 'selected' : ''}>思源宋体 (韩)</option>
                               <option value="'NanumMyeongjo', serif" ${String(layer.fontFamily).includes('NanumMyeongjo') ? 'selected' : ''}>Nanum 明朝</option>
                               <option value="'NanumPenScript', cursive" ${String(layer.fontFamily).includes('NanumPenScript') ? 'selected' : ''}>Nanum 手写</option>
+                            </optgroup>
+                            <optgroup label="英文/艺术">
+                              <option value="'PlayfairDisplay', serif" ${String(layer.fontFamily).includes('PlayfairDisplay') ? 'selected' : ''}>Playfair</option>
+                              <option value="'Caveat', cursive" ${String(layer.fontFamily).includes('Caveat') ? 'selected' : ''}>Caveat</option>
+                              <option value="'DelaGothicOne', sans-serif" ${String(layer.fontFamily).includes('DelaGothicOne') ? 'selected' : ''}>Dela Gothic</option>
                             </optgroup>
                           </select>
                         </div>

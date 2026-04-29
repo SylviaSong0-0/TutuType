@@ -5,12 +5,6 @@
 }
 
 @font-face {
-  font-family: 'SourceHanSerifSC';
-  src: url('/fonts/SourceHanSerifSC-Regular.otf') format('opentype');
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'SourceHanSerif';
   src: url('/fonts/SourceHanSerif-Regular.otf') format('opentype');
   font-display: swap;
@@ -29,18 +23,6 @@
 }
 
 @font-face {
-  font-family: 'Yozai';
-  src: url('/fonts/Yozai-Regular.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'PlayfairDisplay';
   src: url('/fonts/PlayfairDisplay-VariableFont_wght.ttf') format('truetype');
   font-display: swap;
@@ -49,12 +31,6 @@
 @font-face {
   font-family: 'Caveat';
   src: url('/fonts/Caveat-VariableFont_wght.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SourceHanSerifK';
-  src: url('/fonts/SourceHanSerifK-Regular.otf') format('opentype');
   font-display: swap;
 }
 
@@ -71,26 +47,8 @@
 }
 
 @font-face {
-  font-family: 'NotoSansJP';
-  src: url('/fonts/NotoSansJP-VariableFont_wght.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Syne';
-  src: url('/fonts/Syne-VariableFont_wght.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'DelaGothicOne';
   src: url('/fonts/DelaGothicOne-Regular.ttf') format('truetype');
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'ZenMaruGothic';
-  src: url('/fonts/ZenMaruGothic-Regular.ttf') format('truetype');
   font-display: swap;
 }
 
@@ -2381,6 +2339,19 @@ input[type="range"]::-moz-range-thumb {
   background: #ffffff !important;
   color: #1A1D2E !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10) !important;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ─── Final Responsive Override (Ensures full-width on mobile) ─── */
