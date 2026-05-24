@@ -486,6 +486,7 @@ function createPathBoundText(overlay, layer, pathEl) {
 
   const textPath = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
   textPath.setAttribute("href", `#${layer.pathElementId}`);
+  textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${layer.pathElementId}`);
 
   const rawText = computeRenderedTextForPath(layer, pathEl);
   const baseFontSize = layer.fontSize || 20;
@@ -693,7 +694,9 @@ function showLongPressPreviewModal(imageUrl) {
 
   const closeModal = () => {
     modal.remove();
-    URL.revokeObjectURL(imageUrl);
+    if (imageUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imageUrl);
+    }
   };
 
   closeButton.addEventListener("click", closeModal);
@@ -736,7 +739,9 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
 
   try {
     // Wait for fonts properly to ensure quality
-    await document.fonts.ready;
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
 
     const displayWidth = overlay.clientWidth;
     const displayHeight = overlay.clientHeight;
@@ -744,8 +749,6 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
       alert("画布尺寸异常，无法导出");
       return;
     }
-
-    setHelperPathsVisibility(overlay, false);
 
     const canvas = document.createElement("canvas");
     canvas.width = image.naturalWidth;
@@ -806,9 +809,23 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
     styleNode.textContent = fontFaceRules.join("\n");
     exportSvg.insertBefore(styleNode, exportSvg.firstChild);
 
+    // Hide hitboxes
     exportSvg.querySelectorAll('[data-hitbox="true"]').forEach((node) => {
       node.setAttribute("stroke", "transparent");
       node.setAttribute("opacity", "0");
+    });
+
+    // Handle guideline / helper paths hiding safely inside cloned SVG
+    exportSvg.querySelectorAll('[data-helper="true"]').forEach((node) => {
+      if (node.tagName.toLowerCase() === 'path') {
+        // Path needs to remain opacity="1" for textPath mapping to succeed, but we make it transparent
+        node.setAttribute("stroke", "transparent");
+        node.setAttribute("stroke-width", "0");
+        node.setAttribute("opacity", "1");
+      } else {
+        // Non-path guides like gizmos and scaling handles can be completely display="none"
+        node.setAttribute("display", "none");
+      }
     });
 
     const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -832,28 +849,12 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
     if (!blob) return;
 
     const fileName = `TutuType_${Date.now()}.png`;
-    const file = new File([blob], fileName, { type: "image/png" });
     const isMobile = isLikelyMobileDevice();
 
-    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: "TutuType 导出",
-        });
-        showToast("图片已保存至本地");
-        return;
-      } catch (error) {
-        console.error("Share failed:", error);
-        const previewUrl = URL.createObjectURL(blob);
-        showLongPressPreviewModal(previewUrl);
-        return;
-      }
-    }
-
     if (isMobile) {
-      const previewUrl = URL.createObjectURL(blob);
-      showLongPressPreviewModal(previewUrl);
+      // 100% reliable long-press save using Base64 Data URL
+      const dataUrl = canvas.toDataURL("image/png");
+      showLongPressPreviewModal(dataUrl);
     } else {
       downloadBlobAsPng(blob, fileName);
     }
@@ -863,7 +864,6 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
   } finally {
     if (loadingEl) loadingEl.style.display = 'none';
     if (exportBtn) exportBtn.style.opacity = '1', exportBtn.style.pointerEvents = 'auto';
-    setHelperPathsVisibility(overlay, true);
   }
 }
 
@@ -1995,9 +1995,9 @@ export function initImageStage() {
         }
       });
 
-      const throttledApply = (function() {
+      const throttledApply = (function () {
         let lastCall = 0;
-        return function(force = false) {
+        return function (force = false) {
           const now = Date.now();
           if (force || now - lastCall > 32) { // Target ~30fps
             apply(false);
@@ -2086,7 +2086,7 @@ export function initImageStage() {
     refreshHistoryButtons();
     // Initialise all slider fill gradients after panel render
     leftPanelRoot.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
-    
+
     // V3.4: Init custom color pickers
     initCustomColorPickers();
   };
@@ -2583,7 +2583,7 @@ export function initImageStage() {
     const rect = trigger.getBoundingClientRect();
     popover.style.left = `${rect.left}px`;
     popover.style.top = `${rect.bottom + 8}px`;
-    
+
     if (rect.left + 220 > window.innerWidth) popover.style.left = `${window.innerWidth - 220}px`;
     if (rect.bottom + 250 > window.innerHeight) popover.style.top = `${rect.top - 240}px`;
 
@@ -2608,12 +2608,12 @@ export function initImageStage() {
       cursor.style.left = `${s * 100}%`;
       cursor.style.top = `${(1 - v) * 100}%`;
       hueCursor.style.left = `${(h / 360) * 100}%`;
-      
+
       const layer = layers.find(l => l.id === layerId);
       if (layer) {
         layer[prop] = hex;
         trigger.style.backgroundColor = hex;
-        renderCanvasFromLayers(); 
+        renderCanvasFromLayers();
       }
     };
 
