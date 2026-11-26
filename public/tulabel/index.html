@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tu-Label</title>
+<!-- Embedded Noto Serif SC title font
+Copyright 2012 Google Inc. All Rights Reserved.
+
+This Font Software is licensed under the SIL Open Font License,
+Version 1.1.
+
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font
+creation efforts of academic and linguistic communities, and to
+provide a free and open framework in which fonts may be shared and
+improved in partnership with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply to
+any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software
+components as distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to,
+deleting, or substituting -- in part or in whole -- any of the
+components of the Original Version, by changing formats or by porting
+the Font Software to a new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed,
+modify, redistribute, and sell modified and unmodified copies of the
+Font Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components, in
+Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the
+corresponding Copyright Holder. This restriction only applies to the
+primary font name as presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created using
+the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+
+-->
+<style>
+*{box-sizing:border-box}body{margin:0;background:white;color:#242421;font:15px/1.6 system-ui,sans-serif}header{border-bottom:1px solid #e8e7e4}nav,main{max-width:1120px;margin:auto;padding:20px 28px}nav{display:flex;align-items:center;gap:24px}a{color:inherit;text-decoration:none}nav a:first-child{font-size:21px;font-weight:750;margin-right:auto}nav a[aria-current]{border-bottom:1px solid}main{padding-top:54px}h1{font-size:clamp(32px,5vw,56px);line-height:1.1;margin:0 0 16px;letter-spacing:-.045em}h2{line-height:1.25;margin:0 0 12px}p{margin:0 0 20px;color:#625f59}.grid,.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px}.card,.panel{border:1px solid #e4e2dd;border-radius:16px;padding:24px;min-width:0}.card:hover{border-color:#79766f}.art{height:195px;display:grid;place-items:center;margin-bottom:22px;background:#faf9f6;border-radius:10px}.art svg{width:72%;height:75%;overflow:visible}.home-art{height:auto;aspect-ratio:1.65}.home-art svg{width:90%;height:88%}button,input{font:inherit}button,.button{display:inline-block;background:white;color:inherit;border:1px solid #d8d6d0;border-radius:8px;padding:8px 13px;cursor:pointer}button:hover,.button:hover{border-color:#242421}.primary,button[aria-pressed=true]{background:#242421;color:white;border-color:#242421}button:disabled{opacity:.45;cursor:default}fieldset{border:0;padding:0;margin:0 0 20px}legend{font-weight:650;margin-bottom:9px}.choices,.actions,.colors{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.colors{gap:22px}.colors label[hidden]{display:none}.colors label{display:flex;align-items:center;gap:8px}input[type=color]{width:44px;height:35px;border:1px solid #ddd;background:white;border-radius:6px;cursor:pointer}input[type=range]{width:min(100%,260px);accent-color:#242421}input[type=number]{width:75px;border:1px solid #ddd;border-radius:6px;padding:4px}input[type=checkbox]{accent-color:#242421}.toolbar{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}.item .art{height:130px;display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden}.item .art svg{display:block;width:100%;height:100%;min-width:0;overflow:hidden}.settings{padding:12px 0;border-bottom:1px solid #eee}.settings strong{display:block;margin-bottom:8px}.paper{width:100%;max-width:530px;display:block;margin:auto;border:1px solid #ddd;box-shadow:0 4px 16px #0001}.notice{margin:12px 0;color:#655046}.empty{margin-top:24px}.tiny{font-size:13px;color:#666}#printout{display:none}@media(max-width:690px){main{padding:30px 18px}nav{padding:14px 18px;gap:12px}.split,.grid{grid-template-columns:1fr}.home-art{height:175px}}@page{size:A4;margin:0}@media print{body.printing header,body.printing main{display:none}body.printing #printout{display:block}#printout svg{display:block;width:210mm;height:297mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.library-region{container-type:inline-size}
+.grid.library{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.library .item{padding:10px;border-radius:12px}
+.library .item .art{height:90px;margin-bottom:10px;padding:8px}
+.library .item h2{font-size:16px;overflow-wrap:anywhere}
+.library .item .actions{display:grid;justify-items:end;gap:6px;font-size:13px}
+.library .item button{padding:6px 9px}
+@container (min-width:640px){
+ .grid.library{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+ .library .item{padding:14px}
+ .library .item .art{height:104px}
+ .library .item .actions{display:flex;justify-content:flex-end}
+}
+@container (min-width:880px){
+ .grid.library{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.shape-option{display:grid;place-items:center;width:60px;height:44px;padding:6px;color:#53504a}
+.shape-option svg{display:block;width:100%;height:100%}
+.shape-option[aria-pressed=true]{color:#242421;background:#f6f5f2;border-color:#242421;box-shadow:inset 0 0 0 1px #242421}
+.maker-controls{min-width:0;display:flex;flex-direction:column;gap:10px}
+.editor-card{flex:none;border:1px solid #e4e2dd;border-radius:12px;background:#fff;padding:16px}
+.editor-card>fieldset:last-child{margin-bottom:0}
+.editor-card.option-panel{padding:10px}
+.option-panel>label{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px}
+.option-fields{background:#f5f4f1;border-radius:9px;padding:10px;margin-top:8px}
+.option-fields fieldset:last-child{margin-bottom:0}
+.color-row .swatch,.color-row .custom-color{box-sizing:border-box;width:32px;height:32px;padding:0;border:1px solid #d8d6d0;border-radius:50%;cursor:pointer}
+.color-row .custom-color{
+ appearance:none;-webkit-appearance:none;overflow:hidden;padding:5px;
+ background:conic-gradient(#ee5864,#f7ad49,#eddc54,#55bd79,#4eaad9,#8170d7,#ee5864);
+}
+.color-row .custom-color:focus-visible{outline:2px solid #242421;outline-offset:2px}
+.custom-color::-webkit-color-swatch-wrapper{padding:0}
+.custom-color::-webkit-color-swatch{border:0;border-radius:50%}
+.custom-color::-moz-color-swatch{border:0;border-radius:50%}
+.color-row .swatch{background:var(--swatch)}
+.color-row .swatch[aria-pressed=true]{outline:1px solid #242421;outline-offset:2px}
+
+.maker-preview .art{display:flex;justify-content:center;align-items:center;padding:20px;background:#f8f7f4;border:1px solid #ebe8e2}
+.maker-preview .art svg{display:block;width:100%;max-width:340px;height:100%;max-height:240px;overflow:hidden}
+@media(min-width:691px) and (min-height:540px){
+ body:has(.maker){height:100dvh;display:flex;flex-direction:column}
+ body:has(.maker) header{flex:none}
+ main:has(.maker){display:flex;flex:1;flex-direction:column;min-height:0;width:100%;margin:0 auto;padding-top:clamp(24px,5vh,54px)}
+ .maker{flex:1;min-height:0;margin-top:14px;grid-template-rows:minmax(0,1fr)}
+ .maker-controls{overflow-y:auto;scrollbar-gutter:stable}
+ .maker-preview{display:flex;flex-direction:column}
+ .maker-preview .art{flex:1;min-height:0;height:auto}
+ .maker-preview .notice{margin-bottom:0;min-height:1.6em}
+}
+body:has(.maker) nav,main:has(.maker){max-width:1440px}
+@media(min-width:691px){
+ .split.maker{grid-template-columns:clamp(300px,30vw,390px) minmax(0,1fr)}
+}
+.session-saved{border-top:1px solid #e4e2dd;margin-top:8px;padding-top:8px}
+.session-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.session-heading h3{margin:0;font-size:14px}
+.session-strip{display:flex;gap:8px;overflow-x:auto;list-style:none;margin:6px 0 0;padding:0 0 4px}
+.session-strip li{flex:0 0 76px;height:46px;display:grid;place-items:center;border:1px solid #e4e2dd;border-radius:6px;background:#f8f7f4}
+.session-strip svg{display:block;width:60px;height:35px}
+.preview-actions{justify-content:flex-end}
+@media(max-width:690px) and (orientation:portrait){
+ .split.maker>.maker-preview{
+  grid-row:1;position:sticky;top:env(safe-area-inset-top,0px);
+  align-self:start;z-index:2;background:#f4f3f1;padding:12px 18px;
+  border:0;border-bottom:12px solid #fff;border-radius:0;margin-inline:-18px;
+ }
+ main:has(>.maker){padding-top:0}
+ .split.maker{margin-top:0;gap:0}
+ .maker-preview .art{
+  height:clamp(80px,22svh,170px);margin-bottom:8px;padding:10px;
+  background:transparent;border:0;border-radius:0;
+ }
+ .maker-preview .session-strip li{background:transparent}
+ .maker-preview .preview-actions button{padding-block:5px}
+}
+.library .add-label{min-height:166px;display:grid;place-content:center;justify-items:center;gap:4px;border-style:dashed;color:#625f59;text-align:center}
+.library .add-label span{font-size:32px;line-height:1}
+.library .add-label:hover,.library .add-label:focus-visible{border-color:#625f59;background:#faf9f6}
+.batch-option{display:block;position:relative;cursor:pointer}
+.batch-option>input{position:absolute;top:6px;left:6px;margin:0}
+.batch-option .art{margin-bottom:0}
+.batch-option:has(:checked) .art{outline:2px solid #242421;outline-offset:-2px}
+.maker-controls legend,.maker-controls .option-panel>label{font-size:15px;font-weight:500}
+.maker-controls [data-rings],.maker-controls [data-interior-key="lineCount"]{height:36px;display:inline-flex;align-items:center;justify-content:center}
+.maker-controls [data-rings]{width:36px;padding:0}
+.option-panel>label>input[type="checkbox"]{width:18px;height:18px;margin:0 2px 0 0;flex:none}
+.paper-preview-page{margin:0 auto 24px;max-width:530px}
+.paper-preview-page:last-child{margin-bottom:0}
+.paper-preview-page figcaption{margin-bottom:6px}
+@media print{
+ .print-page{break-inside:avoid}
+ .print-page+.print-page{break-before:page;page-break-before:always}
+}
+.print-stepper{display:flex;align-items:center;gap:8px}
+.print-stepper button{width:34px;height:34px;padding:0}
+.print-stepper output{min-width:44px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.settings + .notice + button,.settings + div[hidden] + button{margin-top:12px}
+.size-stepper output{color:#73716d}
+.size-stepper button{width:auto;padding:0 9px;white-space:nowrap}
+main:has(>.maker)>h1,.maker-preview h2{display:none}
+.maker-preview .art svg[data-preview-shape="strip"]{max-width:520px}
+
+[hidden]{display:none!important}
+.workspace-nav{max-width:1440px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.workspace-brand{font-size:20px;font-weight:700}
+main#app{max-width:1440px;padding-top:18px}
+.workspace{display:grid;grid-template-columns:minmax(290px,360px) minmax(0,1fr);gap:18px;align-items:start}
+.workspace .maker-controls{max-height:calc(100dvh - 112px);overflow:auto;scrollbar-gutter:stable}
+#properties{display:grid;gap:10px}
+.board-panel{background:#f4f3f1;min-width:0;padding:14px;border-radius:12px}
+#board{display:block;width:min(100%,calc((100dvh - 225px)*.7071));min-width:min(100%,230px);max-width:590px;margin:auto;background:white;box-shadow:0 2px 10px #0002;touch-action:none}
+.board-hit{cursor:move}
+.selection{fill:none;stroke:#215ac7;stroke-width:.45;pointer-events:none}
+.handle{fill:white;stroke:#215ac7;stroke-width:.5;cursor:grab}
+.handle[data-handle=scale]{cursor:nwse-resize}
+#workspace-status:empty{display:none}
+@media(max-width:690px){
+ .workspace{grid-template-columns:minmax(0,1fr)}
+ .board-panel{grid-row:1}
+ .workspace .maker-controls{max-height:none;overflow:visible}
+ #board{width:min(100%,340px)}
+ .workspace-nav button{padding:5px 8px}
+}
+@media print{body.printing #printout{display:block}.print-page{break-inside:avoid}.print-page+.print-page{break-before:page}}
+.selection-action{cursor:pointer}
+.selection-action circle{fill:white;stroke:#215ac7;stroke-width:.45}
+.selection-action path{fill:none;stroke:#215ac7;stroke-width:.55;pointer-events:none}
+.selection-action:hover circle,.selection-action:focus-visible circle{fill:#e8efff}
+@media screen and (max-width: 690px) and (orientation: portrait){
+ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+ body>header{flex:none;background:white;position:relative;z-index:3}
+ .workspace-nav{padding-block:10px}
+ main#app{display:flex;flex:1;flex-direction:column;min-height:0;width:100%;padding:0}
+ .workspace{flex:1;min-height:0;grid-template-rows:auto minmax(0,1fr);gap:0;align-items:stretch}
+ .board-panel{padding:10px 16px 12px;border-radius:0;border-bottom:8px solid white}
+ #board{width:min(72vw,30.4dvh,100%);min-width:0}
+ .workspace .maker-controls{min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:auto;padding:0 12px max(12px,env(safe-area-inset-bottom))}
+ #workspace-status{margin:0;padding:4px 12px}
+}
+.board-panel{position:relative}
+.exit-focus{position:absolute;top:12px;left:12px;z-index:1;padding:4px 8px;font-size:13px}
+#board.board-focused{background:#eae8e4}
+@font-face{font-family:"Noto Serif SC";font-weight:700;src:url(data:font/ttf;base64,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) format("truetype")}
+.workspace-brand{font-family:"Noto Serif SC",serif}
+.ring-settings+.ring-settings{margin-top:12px}
+.ring-weight{display:grid;grid-template-columns:4.5em minmax(0,1fr) 4.4em;align-items:center;gap:8px;margin-bottom:6px}
+.ring-weight input{width:100%;min-width:0;margin-inline:0}
+.ring-patterns{display:grid;grid-template-columns:repeat(4,minmax(0,44px));gap:6px;margin-inline-start:calc(4.5em + 8px)}
+.ring-patterns .shape-option{width:100%;height:26px;padding:3px 5px}
+.texture-option{width:42px;height:30px;padding:3px}
+.option-fields #texture-color fieldset{margin-bottom:0}
+#export-dialog{width:min(440px,calc(100% - 28px));max-height:calc(100dvh - 24px);border:1px solid #e4e2dd;border-radius:14px;color:inherit;padding:20px}
+#export-dialog::backdrop{background:#0005}
+.export-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.export-heading h2{margin:0}
+.export-heading button{font-size:20px;padding:0 9px}
+#export-form fieldset{margin:12px 0}
+#export-form fieldset label{display:block}
+#export-preview{display:grid;place-items:center;background:#f4f3f1;padding:8px;border-radius:8px}
+#export-preview svg{display:block;width:auto;max-width:100%;height:clamp(100px,24dvh,200px);background:white}
+@media print{body.printing #export-dialog{display:none}}
+</style>
+<style>
+.workspace-brand-group{display:flex;align-items:center;gap:12px}
+.back-home-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid #d8d6d0;border-radius:999px;font-size:13px;font-weight:500;color:#625f59;background:white;transition:border-color .15s,color .15s}
+.back-home-pill:hover{border-color:#242421;color:#242421}
+</style>
+<header><nav class="workspace-nav"><div class="workspace-brand-group"><a class="back-home-pill" href="../index.html" title="返回 TutuType 首页">← 首页</a><strong class="workspace-brand">Tu-Label</strong></div><div class="actions">
+<button data-command="selection" hidden>保存选中内容</button>
+<button class="primary" data-command="export">导出</button>
+</div></nav></header>
+<dialog id="export-dialog" aria-labelledby="export-title">
+ <form id="export-form">
+ <div class="export-heading"><h2 id="export-title">导出标签</h2><button type="button" data-command="close-export" aria-label="关闭">×</button></div>
+ <p class="tiny">当前画板为 A5 · 148 × 210 mm</p>
+ <fieldset><legend>导出排版</legend>
+ <label><input type="radio" name="paper" value="a5" checked> 单份 A5</label>
+ <label><input type="radio" name="paper" value="a4"> 两份 A5 并排到 A4</label></fieldset>
+ <div id="export-preview"></div>
+ <fieldset><legend>文件格式</legend>
+ <label><input type="radio" name="format" value="png" checked> PNG 图片 · 300 PPI</label>
+ <label><input type="radio" name="format" value="pdf"> PDF</label></fieldset>
+ <p class="tiny" id="export-size"></p>
+ <button class="primary" id="export-submit" type="submit">下载 PNG</button>
+ </form>
+</dialog>
+<style id="print-page-size"></style>
+<main id="app"></main><div id="printout" aria-hidden="true"></div>
+<script>
+'use strict';
+const names={round:'圆角',cut:'切角',ticket:'内凹角',oval:'椭圆',circle:'正圆',strip:'细长条',capsule:'胶囊条',octagon:'大切角八边形',petal:'花瓣椭圆',plaque:'复古牌匾',pointed:'尖耳花边框',heart:'心形',drop:'雨滴',clover:'四叶草'};
+const linePatterns={
+ solid:{name:'实线',d:'M3 9H39'},
+ dash:{name:'虚线',d:'M3 9H39',dash:'7 4'},
+ dot:{name:'圆点线',d:'M3 9H39',dash:'.01 6'},
+ hand:{name:'手绘线',d:'M3 9Q7 5 12 9T21 9T30 9T39 9'}
+};
+const backingTextures={
+ none:{name:'无纹理',sample:'<path d="M6 18l30-14" fill="none" stroke="currentColor" stroke-width="1.5"/>'},
+ dots:{name:'波点',tile:'<circle cx="2" cy="2" r=".42" fill="currentColor"/>'},
+ vertical:{name:'竖线',tile:'<path d="M2 0v4" stroke="currentColor" stroke-width=".25"/>'},
+ horizontal:{name:'横线',tile:'<path d="M0 2h4" stroke="currentColor" stroke-width=".25"/>'},
+ grid:{name:'网格',tile:'<path d="M2 0v4M0 2h4" stroke="currentColor" stroke-width=".25"/>'}
+};
+function texturePattern(id,tile,color){
+ return `<defs><pattern id="${id}" width="4" height="4" patternUnits="userSpaceOnUse" style="color:${color}">${tile}</pattern></defs>`;
+}
+const initial={shape:'ticket',rings:2,weights:[1,.3,.5,.3],patterns:Array(4).fill('solid'),backing:false,backingSize:'small',backingColor:'#f2f1ee',backingTexture:'none',textureColor:'#b8ada0',ink:'#8b2e3c',fill:'#f8efd9',lines:false,lineCount:2,lineColor:'#8b2e3c',corners:false,cornerShape:'dot',cornerColor:'#8b2e3c'};
+const app=document.querySelector('#app');
+const svg=(w,h,content,attrs='')=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" ${attrs}>${content}</svg>`;
+const shapeSizes={circle:[40,40],strip:[60,15],capsule:[60,23],heart:[46,41],drop:[32,44],clover:[42,42]};
+const dimensions=shape=>shapeSizes[shape]??[60,35];
+function backingRatio(spec){
+ return spec.backing?(spec.backingSize==='large'?.20:.12):0;
+}
+function finishedDimensions(spec){
+ const [w,h]=dimensions(spec.shape);
+ const padding=Math.min(w,h)*backingRatio(spec);
+ return [w+2*padding,h+2*padding];
+}
+const decorativePaths={
+ petal:'M50 1 C58 -1 62 5 67 5 C76 3 80 8 83 13 C91 13 95 20 95 28 C101 34 101 43 98 50 C101 57 101 66 95 72 C95 80 91 87 83 87 C80 92 76 97 67 95 C62 95 58 101 50 99 C42 101 38 95 33 95 C24 97 20 92 17 87 C9 87 5 80 5 72 C-1 66 -1 57 2 50 C-1 43 -1 34 5 28 C5 20 9 13 17 13 C20 8 24 3 33 5 C38 5 42 -1 50 1 Z',
+ plaque:'M50 8 C45 8 40 0 34 3 C25 4 17 -2 12 12 C9 20 9 30 5 32 L5 39 L0 43 L0 57 L5 61 L5 68 C9 70 9 80 12 88 C17 102 25 96 34 97 C40 100 45 92 50 92 C55 92 60 100 66 97 C75 96 83 102 88 88 C91 80 91 70 95 68 L95 61 L100 57 L100 43 L95 39 L95 32 C91 30 91 20 88 12 C83 -2 75 4 66 3 C60 0 55 8 50 8 Z',
+ pointed:'M50 1 C65 1 65 9 73 9 C82 8 81 20 87 22 C95 23 93 41 100 50 C93 59 95 77 87 78 C81 80 82 92 73 91 C65 91 65 99 50 99 C35 99 35 91 27 91 C18 92 19 80 13 78 C5 77 7 59 0 50 C7 41 5 23 13 22 C19 20 18 8 27 9 C35 9 35 1 50 1 Z',
+ heart:'M50 99 C42 91 1 64 1 32 C1 1 32 -10 50 16 C68 -10 99 1 99 32 C99 64 58 91 50 99 Z',
+ drop:'M50 1 C44 13 5 45 5 65 C5 86 23 99 50 99 C77 99 95 86 95 65 C95 45 56 13 50 1 Z',
+ clover:'M50 19 C62 1 81 -4 92 8 C104 19 99 38 81 50 C99 62 104 81 92 92 C81 104 62 99 50 81 C38 99 19 104 8 92 C-4 81 1 62 19 50 C1 38 -4 19 8 8 C19 -4 38 1 50 19 Z'
+};
+function shapeThumbnail(shape){
+ const [w,h]=dimensions(shape);
+ return svg(w,h,`<path d="${outline(shape,w,h,1)}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>`,'aria-hidden="true" focusable="false"');
+}
+function outline(shape,w,h,inset){
+ const l=inset,t=inset,r=w-inset,b=h-inset;
+ const c=shape==='octagon'?Math.min(w,h)*.34-inset*.65:Math.min(w,h)*(shape==='strip'?.10:.15)-inset*.35;
+ if(Object.hasOwn(decorativePaths,shape)){
+  return decorativePaths[shape].replace(/(-?\d+) (-?\d+)/g,(_,x,y)=>{
+   let nx=Number(x),ny=Number(y);
+   if(shape==='clover'){
+    const factor=.59;
+    [nx,ny]=[50+factor*(nx-ny),50+factor*(nx+ny-100)];
+   }
+   return `${l+nx*(r-l)/100} ${t+ny*(b-t)/100}`;
+  });
+ }
+ if(shape==='capsule'){
+  const radius=Math.min(r-l,b-t)/2;
+  return `M${l+radius} ${t}H${r-radius}A${radius} ${radius} 0 0 1 ${r} ${t+radius}V${b-radius}A${radius} ${radius} 0 0 1 ${r-radius} ${b}H${l+radius}A${radius} ${radius} 0 0 1 ${l} ${b-radius}V${t+radius}A${radius} ${radius} 0 0 1 ${l+radius} ${t}Z`;
+ }
+ if(shape==='oval'||shape==='circle'){const rx=(r-l)/2,ry=(b-t)/2;return `M${l} ${h/2}a${rx} ${ry} 0 1 0 ${r-l} 0a${rx} ${ry} 0 1 0 ${l-r} 0Z`}
+ if(shape==='cut'||shape==='octagon')return `M${l+c} ${t}H${r-c}L${r} ${t+c}V${b-c}L${r-c} ${b}H${l+c}L${l} ${b-c}V${t+c}Z`;
+ const corners=shape==='ticket'
+ ?[`Q${r-c} ${t+c} ${r} ${t+c}`,`Q${r-c} ${b-c} ${r-c} ${b}`,`Q${l+c} ${b-c} ${l} ${b-c}`,`Q${l+c} ${t+c} ${l+c} ${t}`]
+ :[`Q${r} ${t} ${r} ${t+c}`,`Q${r} ${b} ${r-c} ${b}`,`Q${l} ${b} ${l} ${b-c}`,`Q${l} ${t} ${l+c} ${t}`];
+ return `M${l+c} ${t}H${r-c}${corners[0]}V${b-c}${corners[1]}H${l+c}${corners[2]}V${t+c}${corners[3]}Z`;
+}
+let ringMaskSerial=0;
+function sampleContour(contour){
+ const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+ path.setAttribute('d',contour);
+ const length=path.getTotalLength(),count=Math.max(24,Math.ceil(length/.26));
+ const points=Array.from({length:count},(_,i)=>path.getPointAtLength(i*length/count));
+ const area=points.reduce((sum,point,i)=>{
+  const next=points[(i+1)%count];
+  return sum+point.x*next.y-point.y*next.x;
+ },0);
+ const direction=Math.sign(area)||1;
+ const normals=points.map((point,i)=>{
+  const next=points[(i+1)%count];
+  const dx=next.x-point.x,dy=next.y-point.y,length=Math.hypot(dx,dy)||1;
+  return {x:-dy/length*direction,y:dx/length*direction};
+ });
+ return points.map((point,i)=>{
+  const prev=normals[(i+count-1)%count],next=normals[i];
+  const divisor=Math.max(.45,1+prev.x*next.x+prev.y*next.y);
+  return {x:point.x,y:point.y,nx:(prev.x+next.x)/divisor,ny:(prev.y+next.y)/divisor};
+ });
+}
+function patternedStroke(points,band,gap){
+ const width=band.inner-band.outer;
+ const center=(band.inner+band.outer)/2;
+ const amplitude=band.pattern==='hand'?Math.min(gap*.22,width*.3):0;
+ const waveCount=Math.max(5,Math.round(points.length/22));
+ const shifted=points.map(({x,y,nx,ny},i)=>{
+  const phase=i/points.length*2*Math.PI;
+  const wave=amplitude*(.7*Math.sin(phase*waveCount)+.3*Math.sin(phase*(waveCount+5)+1));
+  const offset=center+wave+(band.outer===0?amplitude:0);
+  return [x+nx*offset,y+ny*offset];
+ });
+ const d='M'+shifted.map(point=>point.map(n=>n.toFixed(3)).join(' ')).join('L')+'Z';
+ const length=shifted.reduce((sum,[x,y],i)=>{
+  const [nextX,nextY]=shifted[(i+1)%shifted.length];
+  return sum+Math.hypot(nextX-x,nextY-y);
+ },0);
+ const dotted=band.pattern==='dot';
+ const desired=dotted?Math.max(1.25,width*2.35):Math.max(2.5,width*5);
+ const period=length/Math.max(1,Math.round(length/desired));
+ const dash=dotted?.001:period*.55;
+ return `<path d="${d}" fill="none" stroke="white" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="${dotted?'round':'butt'}"${band.pattern==='hand'?'':` stroke-dasharray="${dash} ${period-dash}" stroke-dashoffset="${dotted?0:dash/2}"`}/>`;
+}
+function label(spec,w=60,h=35){
+ const outerWidth=w,outerHeight=h;
+ const ratio=backingRatio(spec);
+ const padding=Math.min(w,h)*ratio/(1+2*ratio);
+ w-=padding*2;
+ h-=padding*2;
+ const shortSide=Math.min(w,h);
+ const limit=Math.min(Math.max(1,shortSide*.04),shortSide*.075);
+ const weights=Array.from({length:spec.rings},(_,i)=>Math.min(spec.weights?.[i]??spec.weight??.35,limit));
+ const gap=Math.min(.65,Math.min(w,h)*.035);
+ const contour=outline(spec.shape,w,h,0);
+ const maskId='label-rings-'+(++ringMaskSerial);
+ let inset=0;
+ const bands=weights.map((weight,i)=>{
+  const inner=inset+weight;
+  const band={outer:inset,inner,pattern:spec.patterns?.[i]??'solid'};
+  inset=inner+gap;
+  return band;
+ });
+ // A round stroke covers every point within its radius of the contour.
+ // Paint wider bands first and erase their outer edges with a narrower stroke.
+ const stroke=(distance,color)=>distance>0
+  ?`<path d="${contour}" fill="none" stroke="${color}" stroke-width="${2*distance}" stroke-linejoin="round"/>`:'';
+ const patterned=bands.filter(band=>band.pattern!=='solid');
+ const solidMask=bands.filter(band=>band.pattern==='solid').reverse().map(band=>stroke(band.inner,'white')+stroke(band.outer,'black')).join('');
+ const samples=patterned.length?sampleContour(contour):[];
+ const mask=solidMask+patterned.map(band=>patternedStroke(samples,band,gap)).join('');
+ const background=spec.background===false?'':`<path d="${contour}" fill="${spec.fill}"/>`;
+ const artwork=`<defs><mask id="${maskId}" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}" style="mask-type:luminance">${mask}</mask></defs>${background}${interior(spec,w,h,contour,inset-gap,maskId)}<path d="${contour}" fill="${spec.ink}" mask="url(#${maskId})"/>`;
+ if(!spec.backing)return artwork;
+ const tile=backingTextures[spec.backingTexture]?.tile;
+ const textureId=maskId+'-texture';
+ const texture=tile?texturePattern(textureId,tile,spec.textureColor)+
+  `<path d="M${-padding} ${-padding}h${outerWidth}v${outerHeight}h${-outerWidth}Z ${contour}" fill="url(#${textureId})" fill-rule="evenodd"/>`:'';
+ return `<rect width="${outerWidth}" height="${outerHeight}" fill="${spec.backingColor}"/><g transform="translate(${padding} ${padding})">${texture}${artwork}</g>`;
+}
+let cornerContext;
+function cornerPositions(contour,w,h,clearance,shape){
+ cornerContext??=document.createElement('canvas').getContext('2d');
+ const ctx=cornerContext,path=new Path2D(contour);
+ ctx.lineWidth=2*clearance;
+ ctx.lineJoin='round';
+ const inside=(x,y)=>ctx.isPointInPath(path,x,y)&&!ctx.isPointInStroke(path,x,y);
+ const cx=w/2,cy=h/2,positions=[];
+ if(!inside(cx,cy))return positions;
+ const reachAlong=(dx,dy)=>{
+  let safe=0,edge=1;
+  for(let i=0;i<12;i++){
+   const t=(safe+edge)/2;
+   if(inside(cx+dx*t,cy+dy*t))safe=t;else edge=t;
+  }
+  return safe;
+ };
+ if(shape==='clover'||shape==='oval'){
+  return [[0,-cy],[0,cy],[-cx,0],[cx,0]].map(([dx,dy])=>{
+   const reach=reachAlong(dx,dy);
+   return [cx+dx*reach,cy+dy*reach];
+  });
+ }
+ const verticalDirections=shape==='heart'?[-1]:shape==='drop'?[1]:[-1,1];
+ for(const horizontal of [-1,1]){
+  for(const vertical of verticalDirections){
+   let best,score=-Infinity;
+   // Compare nearby diagonals so curved and beveled corners can follow their outline.
+   for(const slope of [.65,.82,1,1.22,1.54]){
+    const dx=horizontal*cx,dy=vertical*cy*slope;
+    const safe=reachAlong(dx,dy),reach=safe*Math.sqrt(slope);
+    if(reach>score){score=reach;best=[cx+dx*safe,cy+dy*safe]}
+   }
+   positions.push(best);
+  }
+ }
+ if(shape==='heart')positions.push([cx,cy+cy*reachAlong(0,cy)]);
+ if(shape==='drop')positions.unshift([cx,cy-cy*reachAlong(0,-cy)]);
+ return positions;
+}
+function interior(spec,w,h,contour,frameInset,id){
+ if(!spec.lines&&!spec.corners)return '';
+ const shortSide=Math.min(w,h);
+ const strokeWidth=Math.min(.24,shortSide*.016);
+ const centerInset=frameInset+shortSide*.035;
+ const marks=[];
+ if(spec.lines){
+  const count=spec.lineCount;
+  const halfWidth=w*(spec.corners?.18:.25);
+  const centerY=h*(spec.shape==='drop'?.58:.5);
+  for(let i=0;i<count;i++){
+   const y=centerY+(i-(count-1)/2)*h*.13;
+   marks.push(`<path d="M${w/2-halfWidth} ${y}H${w/2+halfWidth}" stroke="${spec.lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`);
+  }
+ }
+ if(spec.corners){
+  const radius=shortSide*.019;
+  const marker=spec.cornerShape==='square'
+   ?`<rect x="${-radius*.8}" y="${-radius*.8}" width="${radius*1.6}" height="${radius*1.6}"/>`
+   :spec.cornerShape==='star'
+    ?`<polygon points="${Array.from({length:10},(_,i)=>{
+     const angle=i*Math.PI/5-Math.PI/2,r=radius*(i%2?.45:1);
+     return `${r*Math.cos(angle)},${r*Math.sin(angle)}`;
+    }).join(' ')}"/>`
+    :`<circle r="${radius}"/>`;
+  // Reserve room for the whole mark, including the diagonal of a square.
+  const clearance=centerInset+radius*1.15;
+  for(const [x,y] of cornerPositions(contour,w,h,clearance,spec.shape)){
+   marks.push(`<g transform="translate(${x} ${y})" fill="${spec.cornerColor}">${marker}</g>`);
+  }
+ }
+ const maskId=id+'-interior';
+ return `<defs><mask id="${maskId}" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}" style="mask-type:luminance"><path d="${contour}" fill="white" stroke="black" stroke-width="${2*centerInset}" stroke-linejoin="round"/></mask></defs><g mask="url(#${maskId})">${marks.join('')}</g>`;
+}
+function properties(){
+ return `<div class="editor-card"> ${colorRow('标签颜色','fill')}
+ </div>
+ <div class="editor-card">
+ <fieldset><legend>线条圈数</legend><div class="choices">${[1,2,3,4].map(n=>`<button data-rings="${n}" aria-pressed="${draft.rings===n}">${n}</button>`).join('')}</div></fieldset>
+ <fieldset><legend>线条样式</legend><div id="weights">${weightControls()}</div></fieldset>
+ ${colorRow('线条颜色','ink')}
+ </div>
+ ${optionPanel('lines','添加横线',`
+ <fieldset><legend>横线条数</legend><div class="choices">${[1,2,3].map(n=>`<button data-interior-key="lineCount" data-interior-value="${n}" aria-pressed="${draft.lineCount===n}">${n} 条</button>`).join('')}</div></fieldset>
+ ${colorRow('横线颜色','lineColor')}`)}
+ ${optionPanel('corners','添加四角装饰',`
+ <fieldset><legend>装饰形状</legend><div class="choices">${[['dot','圆点'],['star','星星'],['square','方块']].map(([key,name])=>`<button data-interior-key="cornerShape" data-interior-value="${key}" aria-pressed="${draft.cornerShape===key}">${name}</button>`).join('')}</div></fieldset>
+ ${colorRow('装饰颜色','cornerColor')}`)}
+ ${optionPanel('backing','添加背景',`
+ <fieldset><legend>背景形状</legend><div class="choices">${['small','large'].map(size=>`<button class="shape-option" data-backing-size="${size}" aria-label="${size==='small'?'小矩形':'大矩形'}" aria-pressed="${draft.backingSize===size}">${svg(60,35,size==='small'?'<rect x="12" y="8" width="36" height="19" fill="none" stroke="currentColor" stroke-width="2"/>':'<rect x="4" y="3" width="52" height="29" fill="none" stroke="currentColor" stroke-width="2"/>','aria-hidden="true"')}</button>`).join('')}</div></fieldset>
+ ${colorRow('背景颜色','backingColor')}
+ <fieldset><legend>背景纹理</legend><div class="choices">${Object.entries(backingTextures).map(([key,texture])=>{
+  const id='texture-sample-'+key;
+  const art=texture.sample??texturePattern(id,texture.tile,'#53504a')+`<rect width="42" height="22" fill="url(#${id})"/>`;
+  return `<button class="shape-option texture-option" data-backing-texture="${key}" aria-label="${texture.name}" aria-pressed="${draft.backingTexture===key}">${svg(42,22,art,'aria-hidden="true"')}</button>`;
+ }).join('')}</div></fieldset>
+ <div id="texture-color" ${draft.backingTexture==='none'?'hidden':''}>${colorRow('纹理颜色','textureColor')}</div>`)}
+`;
+}
+const palettes={
+ ink:['#242421','#8b2e3c','#395170','#315f53','#a77637'],
+ fill:['#ffffff','#f8efd9','#f7e5e5','#e7eef5','#e9f0e7'],
+ backingColor:['#f2f1ee','#e9dcc6','#f2d8d8','#dce8f4','#dae8d9'],
+ textureColor:['#b8ada0','#c4a879','#ba8085','#789ab7','#819681']
+};
+function optionPanel(key,title,content){
+ return `<div class="editor-card option-panel"><label><input name="${key}" type="checkbox" aria-controls="${key}-options" ${draft[key]?'checked':''}> ${title}</label>
+ <div class="option-fields" id="${key}-options" ${draft[key]?'':'hidden'}>${content}</div></div>`;
+}
+function colorRow(title,key){
+ return `<fieldset class="color-row"><legend>${title}</legend><div class="choices">
+ <input class="custom-color" name="${key}" type="color" aria-label="自选${title}" value="${draft[key]}">
+ ${(palettes[key]??palettes.ink).map(color=>`<button class="swatch" data-color-key="${key}" data-color="${color}" style="--swatch:${color}" aria-label="${title} ${color}" aria-pressed="${draft[key]===color}"></button>`).join('')}
+ </div></fieldset>`;
+}
+function weightControls(){
+ return draft.weights.slice(0,draft.rings).map((weight,i)=>`<div class="ring-settings">
+ <label class="ring-weight">第 ${i+1} 圈 <input data-weight="${i}" type="range" min=".15" max="1.25" step=".05" value="${weight}"><span><output data-weight-value="${i}">${weight}</output> mm</span></label>
+ <div class="ring-patterns" role="group" aria-label="第 ${i+1} 圈线型">${Object.entries(linePatterns).map(([key,pattern])=>`<button class="shape-option" data-pattern="${key}" data-ring-index="${i}" aria-label="${pattern.name}" aria-pressed="${draft.patterns[i]===key}">${svg(42,18,`<path d="${pattern.d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="${key==='dot'?'round':'butt'}"${pattern.dash?` stroke-dasharray="${pattern.dash}"`:''}/>`,'aria-hidden="true"')}</button>`).join('')}</div>
+ </div>`).join('');
+}
+function refreshDraft(){
+ renderBoard();
+ app.querySelector('#texture-color').hidden=draft.backingTexture==='none';
+ for(const button of app.querySelectorAll('[data-backing-texture]')){
+  button.setAttribute('aria-pressed',String(button.dataset.backingTexture===draft.backingTexture));
+ }
+ for(const key of ['lines','corners','backing'])app.querySelector('#'+key+'-options').hidden=!draft[key];
+ for(const button of app.querySelectorAll('[data-interior-key]')){
+  button.setAttribute('aria-pressed',String(String(draft[button.dataset.interiorKey])===button.dataset.interiorValue));
+ }
+ for(const button of app.querySelectorAll('[data-backing-size]'))button.setAttribute('aria-pressed',String(button.dataset.backingSize===draft.backingSize));
+ for(const button of app.querySelectorAll('[data-color]'))button.setAttribute('aria-pressed',String(draft[button.dataset.colorKey]===button.dataset.color));
+ for(const output of app.querySelectorAll('[data-weight-value]'))output.textContent=draft.weights[Number(output.dataset.weightValue)];
+ for(const button of app.querySelectorAll('[data-pattern]')){
+  button.setAttribute('aria-pressed',String(draft.patterns[Number(button.dataset.ringIndex)]===button.dataset.pattern));
+ }
+ for(const button of app.querySelectorAll('[data-rings]')){
+  button.setAttribute('aria-pressed',String(Number(button.dataset.rings)===draft.rings));
+ }
+}
+function saveFile(blob,name){
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+app.innerHTML=`<p id="workspace-status" role="status"></p>
+<div class="workspace"><section class="maker-controls" aria-label="标签设置">
+<div class="editor-card"><fieldset><legend id="add-label-title">添加标签</legend><div class="choices">${Object.entries(names).map(([key,name])=>`<button class="shape-option" draggable="true" data-add="${key}" aria-label="添加${name}" title="${name}">${shapeThumbnail(key)}</button>`).join('')}</div></fieldset></div>
+<div id="properties"></div></section>
+<section class="board-panel" aria-label="标签画板">
+<button class="exit-focus" data-command="exit-focus" hidden>← 返回 A5</button>
+<svg id="board" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 210" aria-label="A5 纸张"></svg>
+</section></div>`;
+const paper={w:148,h:210};
+const projectKey='paper-label-workspace.a5.v1';
+let items=[],active=null,draft=initial,gesture=null,focused=false;
+const history=[];
+const page=()=>items;
+const current=()=>page().indexOf(active)>=0?active:null;
+const snapshot=()=>JSON.stringify({version:1,pages:[items]});
+function persist(){try{localStorage.setItem(projectKey,snapshot())}catch{}}
+function checkpoint(){
+ history.push(snapshot());if(history.length>40)history.shift();
+}
+function readProject(raw){
+ const value=JSON.parse(raw);
+ if(value?.version!==1||!Array.isArray(value.pages)||!value.pages.length)throw Error('Invalid project');
+ return value.pages.map(items=>{
+  if(!Array.isArray(items))throw Error('Invalid page');
+  return items.map(item=>{
+   if(!item||!Object.hasOwn(names,item.spec?.shape)||!['x','y','w','h','angle'].every(key=>Number.isFinite(item[key]))||item.w<=0||item.h<=0)throw Error('Invalid label');
+   const spec={...initial,weights:[...initial.weights],shape:item.spec.shape};
+   for(const key of ['ink','fill','backingColor','lineColor','cornerColor','textureColor']){
+    if(/^#[a-f0-9]{6}$/i.test(item.spec[key]))spec[key]=item.spec[key];
+   }
+   for(const key of ['backing','lines','corners'])spec[key]=item.spec[key]===true;
+   for(const [key,max] of [['rings',4],['lineCount',3]]){
+    if(Number.isInteger(item.spec[key])&&item.spec[key]>=1&&item.spec[key]<=max)spec[key]=item.spec[key];
+   }
+   if(['dot','star','square'].includes(item.spec.cornerShape))spec.cornerShape=item.spec.cornerShape;
+   if(item.spec.backingSize==='large')spec.backingSize='large';
+   if(Object.hasOwn(backingTextures,item.spec.backingTexture))spec.backingTexture=item.spec.backingTexture;
+   spec.patterns=initial.patterns.map((fallback,i)=>Object.hasOwn(linePatterns,item.spec.patterns?.[i])?item.spec.patterns[i]:fallback);
+   spec.weights=spec.weights.map((weight,i)=>{
+    const value=item.spec.weights?.[i];
+    return Number.isFinite(value)&&value>=.15&&value<=1.25?value:weight;
+   });
+   return {spec,x:item.x,y:item.y,w:item.w,h:item.h,angle:item.angle%360};
+  });
+ });
+}
+function migrateA4(items){
+ const scale=Math.min(paper.w/210,paper.h/297);
+ const left=(paper.w-210*scale)/2,top=(paper.h-297*scale)/2;
+ return items.map(item=>({...item,x:item.x*scale+left,y:item.y*scale+top,w:item.w*scale,h:item.h*scale}));
+}
+try{
+ const recent=localStorage.getItem(projectKey);
+ const legacy=localStorage.getItem('paper-label-workspace.single.v1')??localStorage.getItem('paper-label-workspace.v1');
+ if(recent)items=readProject(recent)[0];
+ else if(legacy){items=migrateA4(readProject(legacy)[0]);persist()}
+}catch{}
+const board=app.querySelector('#board');
+const editor=app.querySelector('#properties');
+function notice(message){app.querySelector('#workspace-status').textContent=message}
+function fit(item){
+ const a=item.angle*Math.PI/180;
+ const x=Math.abs(Math.cos(a))*item.w+Math.abs(Math.sin(a))*item.h;
+ const y=Math.abs(Math.sin(a))*item.w+Math.abs(Math.cos(a))*item.h;
+ const scale=Math.min(1,paper.w/x,paper.h/y);
+ item.w*=scale;item.h*=scale;
+ item.x=Math.max(x*scale/2,Math.min(paper.w-x*scale/2,item.x));
+ item.y=Math.max(y*scale/2,Math.min(paper.h-y*scale/2,item.y));
+}
+function markup(items,interactive){
+ return items.map((item,index)=>{
+  const {x,y,w,h,angle,spec}=item;
+  const [baseWidth,baseHeight]=finishedDimensions(spec);
+  return `<g transform="translate(${x} ${y}) rotate(${angle}) translate(${-w/2} ${-h/2})">
+   <g transform="scale(${w/baseWidth} ${h/baseHeight})">${label(spec,baseWidth,baseHeight)}</g>${interactive?`<rect class="board-hit" data-item="${index}" width="${w}" height="${h}" fill="transparent"/>`:''}</g>`;
+ }).join('');
+}
+function selectionMarkup(item){
+ const {x,y,w,h,angle}=item;
+ const control=(action,label,x,y,icon)=>`<g class="selection-action" data-board-command="${action}" role="button" tabindex="0" aria-label="${label}" transform="translate(${x} ${y})"><title>${label}</title><circle r="3.6"/>${icon}</g>`;
+ return `<g transform="translate(${x} ${y}) rotate(${angle})">
+ <rect class="selection" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}"/>
+ <line class="selection" y1="${-h/2}" y2="${-h/2-7}"/>
+ <circle class="handle" data-handle="rotate" cy="${-h/2-7}" r="2.6"/>
+ <rect class="handle" data-handle="scale" x="${w/2-2.6}" y="${h/2-2.6}" width="5.2" height="5.2"/>
+ ${control('focus','放大编辑',-w/2,-h/2,'<path d="M.7 0a1.4 1.4 0 1 0-2.8 0 1.4 1.4 0 1 0 2.8 0m-.4 1 1.4 1.4"/>')}
+ ${control('delete','删除',w/2,-h/2,'<path d="M-1.3 -1.3l2.6 2.6m0 -2.6l-2.6 2.6"/>')}
+ ${control('copy','复制',-w/2,h/2,'<path d="M-1.6 .7v-2.3H.7M-.7 -.7h2.3v2.3H-.7z"/>')}
+ </g>`;
+}
+function renderBoard(){
+ const item=current();
+ const showFocus=focused&&!!item;
+ if(showFocus){
+  const radians=item.angle*Math.PI/180;
+  const w=Math.abs(Math.cos(radians))*item.w+Math.abs(Math.sin(radians))*item.h;
+  const h=Math.abs(Math.sin(radians))*item.w+Math.abs(Math.cos(radians))*item.h;
+  const zoom=Math.max(1,Math.min(paper.w*.82/w,paper.h*.82/h));
+  const viewWidth=paper.w/zoom,viewHeight=paper.h/zoom;
+  board.setAttribute('viewBox',`${item.x-viewWidth/2} ${item.y-viewHeight/2} ${viewWidth} ${viewHeight}`);
+  board.innerHTML=`<rect width="${paper.w}" height="${paper.h}" fill="white"/>`+markup(page(),false);
+ }else{
+  board.setAttribute('viewBox',`0 0 ${paper.w} ${paper.h}`);
+  board.innerHTML=markup(page(),true)+(item?selectionMarkup(item):'');
+ }
+ board.classList.toggle('board-focused',showFocus);
+ board.setAttribute('aria-label',showFocus?'以选中标签为中心的 A5 放大视图':'A5 纸张');
+ app.querySelector('[data-command=exit-focus]').hidden=!showFocus;
+ document.querySelector('[data-command=selection]').hidden=!item;
+}
+function select(item){
+ active=item;focused=false;
+ refreshShapePicker();
+ if(item){draft=item.spec;editor.innerHTML=properties()}
+ else editor.innerHTML='<p class="tiny">选中纸上的标签后可编辑样式。</p>';
+ renderBoard();
+}
+function refreshShapePicker(){
+ const item=current();
+ app.querySelector('#add-label-title').hidden=!!item;
+ for(const button of app.querySelectorAll('[data-add]')){
+  const shape=button.dataset.add;
+  button.setAttribute('aria-label',(item?'改为':'添加')+names[shape]);
+  if(item)button.setAttribute('aria-pressed',String(item.spec.shape===shape));
+  else button.removeAttribute('aria-pressed');
+ }
+}
+function pickShape(shape){
+ const item=current();
+ if(!item){add(shape);return}
+ if(item.spec.shape===shape)return;
+ checkpoint();
+ const longest=Math.max(item.w,item.h);
+ item.spec.shape=shape;
+ const [w,h]=finishedDimensions(item.spec),scale=longest/Math.max(w,h);
+ item.w=w*scale;item.h=h*scale;
+ fit(item);refreshShapePicker();renderBoard();persist();
+}
+function add(shape,x,y){
+ checkpoint();
+ const spec={...initial,shape,weights:[...initial.weights],patterns:[...initial.patterns]};
+ const [w,h]=finishedDimensions(spec);
+ const offset=page().length%7*5;
+ const item={spec,w,h,x:x??paper.w/2+offset,y:y??paper.h*.34+offset,angle:0};
+ fit(item);page().push(item);select(item);persist();
+}
+function boardPoint(event){
+ const point=board.createSVGPoint();
+ point.x=event.clientX;point.y=event.clientY;
+ return point.matrixTransform(board.getScreenCTM().inverse());
+}
+board.addEventListener('dragover',event=>{event.preventDefault();event.dataTransfer.dropEffect=focused?'none':'copy'});
+board.addEventListener('drop',event=>{
+ event.preventDefault();
+ if(focused)return;
+ const shape=event.dataTransfer.getData('text/plain');
+ if(Object.hasOwn(names,shape)){const p=boardPoint(event);add(shape,p.x,p.y)}
+});
+app.addEventListener('dragstart',event=>{
+ const shape=event.target.closest('[data-add]')?.dataset.add;
+ if(shape){event.dataTransfer.setData('text/plain',shape);event.dataTransfer.effectAllowed='copy'}
+});
+board.addEventListener('pointerdown',event=>{
+ if(focused||event.button!==0||event.target.closest('[data-board-command]'))return;
+ const handle=event.target.dataset.handle;
+ const item=handle?current():page()[event.target.dataset.item];
+ if(!item){select(null);return}
+ event.preventDefault();
+ const start=boardPoint(event);
+ if(item!==current())select(item);
+ gesture={item,start,original:{...item},handle,pointer:event.pointerId,changed:false};
+ board.setPointerCapture(event.pointerId);
+});
+board.addEventListener('pointermove',event=>{
+ if(!gesture||event.pointerId!==gesture.pointer)return;
+ const {item,start,original,handle}=gesture,p=boardPoint(event);
+ if(!gesture.changed){
+  if(Math.hypot(p.x-start.x,p.y-start.y)<.5)return;
+  checkpoint();gesture.changed=true;
+ }
+ Object.assign(item,original);
+ if(handle==='rotate'){
+  item.angle=(original.angle+(Math.atan2(p.y-original.y,p.x-original.x)-Math.atan2(start.y-original.y,start.x))*180/Math.PI+360)%360;
+ }else if(handle==='scale'){
+  const ratio=Math.max(5/Math.min(original.w,original.h),Math.hypot(p.x-original.x,p.y-original.y)/Math.hypot(start.x-original.x,start.y-original.y));
+  item.w*=ratio;item.h*=ratio;
+ }else{item.x+=p.x-start.x;item.y+=p.y-start.y}
+ fit(item);renderBoard();
+});
+for(const eventName of ['pointerup','pointercancel','lostpointercapture'])board.addEventListener(eventName,event=>{
+ if(gesture?.pointer!==event.pointerId)return;
+ if(gesture.changed)persist();
+ gesture=null;
+});
+function resizeBacking(item,oldRatio){
+ const short=Math.min(item.w,item.h)/(1+2*oldRatio);
+ const change=2*short*(backingRatio(item.spec)-oldRatio);
+ item.w+=change;item.h+=change;fit(item);
+}
+function styleChange(button){
+ if(!current())return;
+ const {rings,color,colorKey,backingSize,interiorKey,interiorValue,pattern,ringIndex,backingTexture}=button.dataset;
+ if(!(rings||color||backingSize||interiorKey||pattern||backingTexture))return;
+ checkpoint();
+ if(backingTexture)draft.backingTexture=backingTexture;
+ if(pattern)draft.patterns[Number(ringIndex)]=pattern;
+ if(rings){draft.rings=Number(rings);editor.querySelector('#weights').innerHTML=weightControls()}
+ if(color){draft[colorKey]=color;editor.querySelector(`input[name="${colorKey}"]`).value=color}
+ if(backingSize){const oldRatio=backingRatio(draft);draft.backingSize=backingSize;resizeBacking(current(),oldRatio)}
+ if(interiorKey)draft[interiorKey]=interiorKey==='lineCount'?Number(interiorValue):interiorValue;
+ refreshDraft();persist();
+}
+let changingInput=null;
+editor.addEventListener('input',event=>{
+ const input=event.target;
+ if(!current())return;
+ if(changingInput!==input){checkpoint();changingInput=input}
+ if(input.dataset.weight!==undefined)draft.weights[Number(input.dataset.weight)]=input.valueAsNumber;
+ else if(input.type==='color'||input.type==='checkbox'){
+  const oldRatio=backingRatio(draft);
+  draft[input.name]=input.type==='checkbox'?input.checked:input.value;
+  if(input.name==='backing')resizeBacking(current(),oldRatio);
+ }
+ refreshDraft();persist();
+});
+editor.addEventListener('change',()=>{changingInput=null});
+const pngPixels=mm=>Math.round(mm*300/25.4);
+async function setPngDensity(blob){
+ const bytes=new Uint8Array(await blob.arrayBuffer());
+ const source=new DataView(bytes.buffer);
+ const chunk=new Uint8Array(21),view=new DataView(chunk.buffer);
+ view.setUint32(0,9);
+ chunk.set([112,72,89,115],4); // pHYs
+ const pixelsPerMetre=Math.round(300/.0254);
+ view.setUint32(8,pixelsPerMetre);view.setUint32(12,pixelsPerMetre);chunk[16]=1;
+ let crc=-1;
+ for(const byte of chunk.subarray(4,17)){
+  crc^=byte;
+  for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+ }
+ view.setUint32(17,~crc);
+ const parts=[bytes.subarray(0,8)];
+ for(let offset=8;offset+12<=bytes.length;){
+  const end=offset+12+source.getUint32(offset);
+  const type=source.getUint32(offset+4);
+  if(type!==0x70485973)parts.push(bytes.subarray(offset,end));
+  if(type===0x49484452)parts.push(chunk);
+  offset=end;
+ }
+ return new Blob(parts,{type:'image/png'});
+}
+const exportDialog=document.querySelector('#export-dialog');
+const exportForm=document.querySelector('#export-form');
+function exportSheet(layout){
+ const a4=layout==='a4',w=a4?297:paper.w,h=paper.h;
+ const content=markup(page(),false)+(a4?`<g transform="translate(149 0)">${markup(page(),false)}</g>`:'');
+ return {w,h,content,id:a4?'A4':'A5'};
+}
+function refreshExport(){
+ const {w,h,content}=exportSheet(exportForm.elements.paper.value);
+ const png=exportForm.elements.format.value==='png';
+ exportDialog.querySelector('#export-preview').innerHTML=svg(w,h,content,'aria-label="导出预览"');
+ exportDialog.querySelector('#export-size').textContent=`${w} × ${h} mm`+(png?` · ${pngPixels(w)} × ${pngPixels(h)} px`:'');
+ exportDialog.querySelector('#export-submit').textContent=png?'下载 PNG':'保存 PDF';
+}
+exportForm.addEventListener('change',refreshExport);
+exportForm.addEventListener('submit',event=>{
+ event.preventDefault();
+ const {w,h,content,id}=exportSheet(exportForm.elements.paper.value);
+ const png=exportForm.elements.format.value==='png';
+ exportDialog.close();
+ if(png){
+  downloadPng(w,h,`<rect width="${w}" height="${h}" fill="white"/>`+content,`Tu-Label-${id}.png`);
+  return;
+ }
+ document.querySelector('#print-page-size').textContent=`@page{size:${w}mm ${h}mm;margin:0}`;
+ document.querySelector('#printout').innerHTML=svg(w,h,content,`style="width:${w}mm;height:${h}mm"`);
+ document.body.classList.add('printing');
+ window.print();
+});
+async function downloadPng(w,h,content,name){
+ const width=Math.max(1,pngPixels(w)),height=Math.max(1,pngPixels(h));
+ const source=svg(w,h,content,`width="${width}" height="${height}"`);
+ const url=URL.createObjectURL(new Blob([source],{type:'image/svg+xml'}));
+ try{
+  const image=new Image();image.src=url;await image.decode();
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  canvas.getContext('2d').drawImage(image,0,0);
+  const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  if(!png)throw Error('PNG export failed');
+  saveFile(await setPngDensity(png),name);
+ }catch{notice('图片保存失败，请重试')}
+ finally{URL.revokeObjectURL(url)}
+}
+function command(action){
+ const item=current();
+ if(action==='focus'&&item){
+  focused=true;renderBoard();
+  app.querySelector('[data-command=exit-focus]').focus();return;
+ }
+ if(action==='exit-focus'){
+  focused=false;renderBoard();
+  board.querySelector('[data-board-command=focus]')?.focus();return;
+ }
+ if(action==='selection'&&item){
+  const radians=item.angle*Math.PI/180;
+  const w=Math.abs(Math.cos(radians))*item.w+Math.abs(Math.sin(radians))*item.h;
+  const h=Math.abs(Math.sin(radians))*item.w+Math.abs(Math.cos(radians))*item.h;
+  downloadPng(w,h,markup([{...item,x:w/2,y:h/2}],false),names[item.spec.shape]+'.png');
+  return;
+ }
+ if(action==='export'){refreshExport();exportDialog.showModal();return}
+ if(action==='close-export'){exportDialog.close();return}
+ if(action==='undo'&&history.length){
+  items=readProject(history.pop())[0];select(null);persist();return;
+ }
+ if(!item)return;
+ checkpoint();
+ if(action==='delete'){page().splice(page().indexOf(item),1);select(null)}
+ if(action==='copy'){
+  const copy={...item,x:item.x+5,y:item.y+5,spec:{...item.spec,weights:[...item.spec.weights],patterns:[...item.spec.patterns]}};
+  fit(copy);page().push(copy);select(copy);
+ }
+ persist();
+}
+document.addEventListener('click',event=>{
+ const action=event.target.closest('[data-board-command]');
+ if(action){command(action.dataset.boardCommand);return}
+ const button=event.target.closest('button');
+ if(!button)return;
+ if(button.dataset.add)pickShape(button.dataset.add);
+ else if(button.dataset.command)command(button.dataset.command);
+ else if(editor.contains(button))styleChange(button);
+});
+document.addEventListener('keydown',event=>{
+ if(focused&&!exportDialog.open&&event.key==='Escape'){event.preventDefault();command('exit-focus');return}
+ const action=event.target.closest('[data-board-command]');
+ if(action&&(event.key==='Enter'||event.key===' ')){event.preventDefault();command(action.dataset.boardCommand);return}
+ if(event.target.closest('input,textarea,button,summary')||gesture)return;
+ if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='z'){
+  event.preventDefault();command('undo');
+ }
+ if(current()&&(event.key==='Delete'||event.key==='Backspace')){
+  event.preventDefault();command('delete');
+ }
+});
+window.addEventListener('afterprint',()=>{
+ document.body.classList.remove('printing');
+ document.querySelector('#print-page-size').textContent='';
+ document.querySelector('#printout').replaceChildren();
+});
+select(null);
+</script>
+</html>

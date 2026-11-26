@@ -568,29 +568,6 @@ function isLikelyMobileDevice() {
   return !!isMobile;
 }
 
-const fontBase64Cache = new Map();
-
-async function fetchFontAsBase64(url) {
-  const absoluteUrl = new URL(url, window.location.href).href;
-  if (fontBase64Cache.has(absoluteUrl)) return fontBase64Cache.get(absoluteUrl);
-  try {
-    const response = await fetch(absoluteUrl);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result;
-        fontBase64Cache.set(absoluteUrl, base64);
-        resolve(base64);
-      };
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.error("Font fetch failed:", absoluteUrl, e);
-    return null;
-  }
-}
-
 const hitTestCanvas = document.createElement("canvas");
 
 const hitTestCtx = hitTestCanvas.getContext("2d");
@@ -668,7 +645,7 @@ function downloadBlobAsPng(blob, fileName) {
 
 }
 
-function showLongPressPreviewModal(imageUrl) {
+function showLongPressPreviewModal(imageUrl, tempFilePath) {
   const existing = document.querySelector(".preview-modal");
   if (existing) existing.remove();
 
@@ -678,14 +655,42 @@ function showLongPressPreviewModal(imageUrl) {
   const content = document.createElement("div");
   content.className = "preview-modal-content";
 
+  const isXhs = !!(window.xhs && window.xhs.miniTool);
   const hint = document.createElement("p");
   hint.className = "preview-modal-hint";
-  hint.textContent = "👉 请长按图片保存到系统相册 👈";
+  hint.textContent = isXhs ? "🎉 导出成功！" : "👉 请长按图片保存到系统相册 👈";
 
   const image = document.createElement("img");
   image.className = "preview-modal-image";
   image.src = imageUrl;
   image.alt = "导出预览";
+
+  const actionsRow = document.createElement("div");
+  actionsRow.style.cssText = "display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap;";
+
+  const miniTool = window.xhs && window.xhs.miniTool;
+  if (miniTool && typeof miniTool.postNote === "function") {
+    const postButton = document.createElement("button");
+    postButton.className = "preview-modal-post";
+    postButton.type = "button";
+    postButton.style.cssText = "border: none; background: #ff2442; color: #fff; border-radius: 999px; padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(255, 36, 66, 0.35);";
+    postButton.textContent = "发布到小红书";
+    postButton.addEventListener("click", async () => {
+      try {
+        await miniTool.postNote({
+          title: "我的手绘文字排版",
+          content: "使用 TutuType 排版工具创作",
+          pageType: "photo_publish",
+          mediaInfo: {
+            image_resources: [{ url: tempFilePath || imageUrl }],
+          },
+        });
+      } catch (err) {
+        alert("发布笔记失败: " + (err.errMsg || err.message || "未知错误"));
+      }
+    });
+    actionsRow.appendChild(postButton);
+  }
 
   const closeButton = document.createElement("button");
   closeButton.className = "preview-modal-close";
@@ -704,9 +709,11 @@ function showLongPressPreviewModal(imageUrl) {
     if (event.target === modal) closeModal();
   });
 
+  actionsRow.appendChild(closeButton);
+
   content.appendChild(hint);
   content.appendChild(image);
-  content.appendChild(closeButton);
+  content.appendChild(actionsRow);
   modal.appendChild(content);
   document.body.appendChild(modal);
 }
@@ -765,49 +772,11 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
     const scaleX = image.naturalWidth / displayWidth;
     const scaleY = image.naturalHeight / displayHeight;
 
-    // V6.8: Physical Base64 Font Injection
-    const usedFontFamilies = new Set(layers.map(l => {
-      const ff = l.fontFamily || "'SourceHanSansHWSC', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
-      // Extract the first font name
-      const match = ff.match(/'([^']+)'/);
-      return match ? match[1] : ff.split(',')[0].trim();
-    }));
-
-    const fontFaceRules = [];
-    const styleSheets = Array.from(document.styleSheets);
-    for (const sheet of styleSheets) {
-      try {
-        const rules = Array.from(sheet.cssRules);
-        for (const rule of rules) {
-          if (rule.type === CSSRule.FONT_FACE_RULE) {
-            const family = rule.style.getPropertyValue("font-family").replace(/['"]/g, "").trim();
-            if (usedFontFamilies.has(family)) {
-              const src = rule.style.getPropertyValue("src");
-              const urlMatch = src.match(/url\(["']?([^"']+)["']?\)/);
-              if (urlMatch) {
-                const fontUrl = urlMatch[1];
-                const base64 = await fetchFontAsBase64(fontUrl);
-                if (base64) {
-                  fontFaceRules.push(`@font-face { font-family: '${family}'; src: url("${base64}") format('woff2'); }`);
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        // Skip cross-origin
-      }
-    }
-
     const exportSvg = overlay.cloneNode(true);
     exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     exportSvg.setAttribute("viewBox", `0 0 ${image.naturalWidth} ${image.naturalHeight}`);
     exportSvg.setAttribute("width", `${image.naturalWidth}`);
     exportSvg.setAttribute("height", `${image.naturalHeight}`);
-
-    const styleNode = document.createElementNS("http://www.w3.org/2000/svg", "style");
-    styleNode.textContent = fontFaceRules.join("\n");
-    exportSvg.insertBefore(styleNode, exportSvg.firstChild);
 
     // Hide hitboxes
     exportSvg.querySelectorAll('[data-hitbox="true"]').forEach((node) => {
@@ -849,11 +818,34 @@ async function exportCompositeImage(image, overlay, layers, isBaseImageVisible =
     if (!blob) return;
 
     const fileName = `TutuType_${Date.now()}.png`;
-    const isMobile = isLikelyMobileDevice();
+    const dataUrl = canvas.toDataURL("image/png");
+    const miniTool = window.xhs && window.xhs.miniTool;
 
+    // Prioritize Xiaohongshu container native capabilities
+    if (miniTool && typeof miniTool.saveImageToPhotosAlbum === "function") {
+      try {
+        let savePath = dataUrl;
+        if (typeof miniTool.writeTempFile === "function") {
+          try {
+            const tempRes = await miniTool.writeTempFile({ data: dataUrl });
+            if (tempRes && tempRes.filePath) {
+              savePath = tempRes.filePath;
+            }
+          } catch (writeErr) {
+            console.warn("writeTempFile fallback to dataUrl:", writeErr);
+          }
+        }
+        await miniTool.saveImageToPhotosAlbum({ filePath: savePath });
+        showToast("已成功保存到系统相册！");
+        showLongPressPreviewModal(dataUrl, savePath);
+        return;
+      } catch (saveErr) {
+        console.warn("saveImageToPhotosAlbum failed, showing fallback modal:", saveErr);
+      }
+    }
+
+    const isMobile = isLikelyMobileDevice();
     if (isMobile) {
-      // 100% reliable long-press save using Base64 Data URL
-      const dataUrl = canvas.toDataURL("image/png");
       showLongPressPreviewModal(dataUrl);
     } else {
       downloadBlobAsPng(blob, fileName);
@@ -1440,7 +1432,7 @@ export function initImageStage() {
       ? `
         <section class="panel-section">
           <h2 class="section-title">图片</h2>
-          <div class="upload-state">
+          <div class="upload-state upload-state--filled">
             <div class="upload-filled">
               <img class="upload-thumb" src="${image.src}" alt="缩略图" />
               <div class="upload-name" title="${uploadFileName}">${uploadFileName || "已上传图片"}</div>
@@ -1457,7 +1449,7 @@ export function initImageStage() {
       : `
         <section class="panel-section">
           <h2 class="section-title">图片</h2>
-          <div class="upload-state">
+          <div class="upload-state upload-state--empty">
             <p class="upload-empty-text">请先上传图片作为底图</p>
             <button class="upload-button" data-action="pick-image" type="button">选择本地图片</button>
           </div>
